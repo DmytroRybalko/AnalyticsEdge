@@ -1,0 +1,154 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+Load data
+```{r}
+baseball <- read.csv("baseball.csv")
+```
+Look into data:
+```{r}
+glimpse(baseball)
+```
+Let's filter our data:
+```{r}
+moneyball <- subset(baseball, Year < 2002)
+```
+Let's create new variable
+```{r}
+moneyball$RD = moneyball$RS - moneyball$RA
+```
+Make scatterplot:
+```{r}
+ggplot(moneyball, aes(RD, W)) +
+  geom_point()
+```
+Build simple model
+```{r}
+WinsReg <- lm(W ~ RD, data = moneyball)
+summary(WinsReg)
+```
+So we have a strong model to predict wins using the difference between runs scored and runs allowed.
+Now, let's see if we can use this model to confirm the claim made in Moneyball that a team needs
+to score at least 135 more runs than they allow to win at least 95 games.
+# QQ: If a baseball team scores 713 runs and allows 614 runs, how many games do we expect the team to win?
+```{r}
+80.88 + 0.1058*(713 - 614)
+```
+# 3. Predicting runs
+We want to see if we can use linear regression to predict runs scored, RS, using these three hitting statistics - on-base percentage, slugging percentage and batting average.
+```{r}
+RunsReg <- lm(RS ~ OBP + SLG + BA, data = moneyball)
+summary(RunsReg)
+```
+These three hitting statistics are highly correlated, so it's hard to interpret the coefficients of our model. Let's try removing batting average, the variable with the least significance, to see what happens to our model.
+```{r}
+RunsReg <- lm(RS ~ OBP + SLG, data = moneyball)
+summary(RunsReg)
+```
+If we take a look at the summary of our regression equation, we can see that all of our independent variables
+are significant, and our R-squared is 0.93. But if we look at our coefficients, we can see that the coefficient for batting average
+is negative. This implies that, all else being equal, a team with a lower batting average will score more runs, which is a little counterintuitive. What's going on here is a case of multicollinearity. These three hitting statistics are highly correlated,
+so it's hard to interpret the coefficients of our model. Let's try removing batting average, the variable with the least significance, to see what happens to our model. So let's hit the up arrow twice, and then delete BA from our model, and hit Enter.
+And then, hit the up arrow twice again to look at the new model. We can see that our independent variables are still
+very significant, the coefficients are both positive as we expect, and our R-squared is still about 0.93.
+So this model is simpler, with only two independent variables, and has about the same R-squared. Overall a better model.
+
+# Quiq Questions:
+## 1. If a baseball team's OBP is 0.311 and SLG is 0.405, how many runs do we expect the team to score?
+
+```{r}
+RunsReg$coefficients
+```
+Answer:
+```{r}
+RunsReg$coefficients[[1]] + RunsReg$coefficients[[2]]*0.311 + RunsReg$coefficients[[3]]*0.405
+```
+
+## 2. If a baseball team's opponents OBP (OOBP) is 0.297 and oppenents SLG (OSLG) is 0.370, how many runs do we expect the team to allow?
+
+```{r}
+-837.38 + 2913.60*0.297 + 1514.29*0.370
+```
+## 3. Suppose you are the General Manager of a baseball team, and you are selecting TWO players for your team. You have a budget of $1,500,000, and you have the choice between the following players:
+
+Player Name	 | OBP	SLG	Salary
+Eric Chavez	 |  0.338	 0.540	$1,400,000
+Jeremy Giambi|  0.391	 0.450	$1,065,000
+Frank Menechino| 0.369	0.374	$295,000
+Greg Myers|   	0.313	 0.447	$800,000
+Carlos Pena|	  0.361	 0.500	$300,000
+
+Given your budget and the player statistics, which TWO players would you select?
+```{r}
+Players <- tibble(OBP = c(0.338, 0.391, 0.369, 0.313, 0.361),
+                  SLG = c(0.540, 0.45, 0.374, 0.447, 0.5))
+```
+Find answer
+```{r}
+map2(Players$OBP, Players$SLG, ~(-804.627 + 2737.768 * .x + 1584.9086 * .y))
+```
+## Answer: we have to choose 2 and 5 players: 1,065 + 300 < 1500. The best choice!!!
+
+![img]('unit2-Linear_regression/img/QQ2-3.png')
+
+## 4. In 2012 and 2013, there were 10 teams in the MLB playoffs: the six teams that had the most wins in each baseball division, and four "wild card" teams. The playoffs start between the four wild card teams - the two teams that win proceed in the playoffs (8 teams remaining). Then, these teams are paired off and play a series of games. The four teams that win are then paired and play to determine who will play in the World Series. 
+
+We can assign rankings to the teams as follows:
+
+Rank 1: the team that won the World Series
+Rank 2: the team that lost the World Series
+Rank 3: the two teams that lost to the teams in the World Series
+Rank 4: the four teams that made it past the wild card round, but lost to the above four teams
+Rank 5: the two teams that lost the wild card round
+In your R console, create a corresponding rank vector by typing
+
+```{r}
+teamRank <- c(1, 2, 3, 3, 4, 4, 4, 4, 5, 5)
+```
+
+In this quick question, we'll see how well these rankings correlate with the regular season wins of the teams. In 2012, the ranking of the teams and their regular season wins were as follows:
+
+Rank 1: San Francisco Giants (Wins = 94)
+Rank 2: Detroit Tigers (Wins = 88)
+Rank 3: New York Yankees (Wins = 95), and St. Louis Cardinals (Wins = 88)
+Rank 4: Baltimore Orioles (Wins = 93), Oakland A's (Wins = 94), Washington Nationals (Wins = 98), Cincinnati Reds (Wins = 97)
+Rank 5: Texas Rangers (Wins = 93), and Atlanta Braves (Wins = 94) 
+
+Create a vector in R called wins2012, that has the wins of each team in 2012, in order of rank (the vector should have 10 numbers).
+
+```{r}
+wins2012 <- c(94, 88, 95, 88, 93, 94, 98, 97, 93, 94)
+```
+
+In 2013, the ranking of the teams and their regular season wins were as follows:
+
+Rank 1: Boston Red Sox (Wins = 97)
+Rank 2: St. Louis Cardinals (Wins = 97)
+Rank 3: Los Angeles Dodgers (Wins = 92), and Detroit Tigers (Wins = 93)
+Rank 4: Tampa Bay Rays (Wins = 92), Oakland A's (Wins = 96), Pittsburgh Pirates (Wins = 94), and Atlanta Braves (Wins = 96)
+Rank 5: Cleveland Indians (Wins = 92), and Cincinnati Reds (Wins = 90) 
+
+Create another vector in R called wins2013, that has the wins of each team in 2013, in order of rank (the vector should have 10 numbers).
+```{r}
+wins2013 <- c(97, 97, 92, 93, 92, 96, 94, 96, 92, 90)
+```
+
+## QQ1: What is the correlation between teamRank and wins2012?
+
+```{r}
+cor(teamRank, wins2012)
+```
+
+## What is the correlation between teamRank and wins2013?
+
+```{r}
+cor(teamRank, wins2013)
+```
+
+# Questions:

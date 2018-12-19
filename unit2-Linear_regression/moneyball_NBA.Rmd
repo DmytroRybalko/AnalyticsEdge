@@ -1,0 +1,135 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+Load data
+```{r}
+NBA <- read.csv("NBA_train.csv")
+```
+Look into data:
+```{r}
+glimpse(NBA)
+```
+
+```{r}
+NBA$PTSdiff <- NBA$PTS - NBA$oppPTS
+```
+Make scatterplot:
+```{r}
+ggplot(NBA, aes(PTSdiff, W)) +
+  geom_point()
+```
+So we're going to have PTSdiff as our independent variable in our regression,
+and W for wins as the dependent variable. So let's call this WinsReg.
+```{r}
+WinsReg <- lm(W ~ PTSdiff, data = NBA)
+summary(WinsReg)
+```
+So now let's build an equation to predict points scored using some common basketball statistics.
+So our dependent variable would now be PTS, and our independent variables would
+be some of the common basketball statistics that we have in our data set.
+So for example, the number of two-point field goal attempts, the number of three-point field goal attempts,
+offensive rebounds, defensive rebounds, assists, steals, blocks, turnovers, free throw attempts-- we can use all of these.
+So let's build this regression and call it PointsReg.
+```{r}
+PointsReg <- lm(PTS ~ X2PA + X3PA + FTA + AST + ORB + DRB + TOV + STL + BLK , data = NBA)
+summary(PointsReg)
+```
+Let's compute the sum of squared errors - SSE - standing for sum of squared errors:
+```{r}
+(SSE <- sum(PointsReg$residuals^2))
+```
+It's quite a lot-- 28,394,314. So the sum of squared errors number
+is not really a very interpretable quantity. But remember, we can also calculateWe can also calculate the root mean squared error, which is much more interpretable. It's more like the average error we make in our predictions.
+So the root mean squared error, RMSE-- let's calculate it here. So RMSE is just equal to the square root
+of the sum of squared errors divided by n, where n here is the number of rows in our data set.
+```{r}
+(RMSE <- sqrt(SSE / nrow(NBA)))
+```
+I think we still have room for improvement in this model. If you recall, not all the variables were significant.
+Let's see if we can remove some of the insignificant variables one at a time.
+
+The first variable we would want to remove is probably turnovers. And why do I say turnovers (TOV)?
+It's because the p value for turnovers, which you see here in this column, 0.6859, is the highest of all of the p values.
+So that means that turnovers is the least statistically significant variable in our model.
+So let's create a new regression model without turnovers.
+```{r}
+PointsReg2 <- lm(PTS ~ X2PA + X3PA + FTA + AST + ORB + DRB + STL + BLK, data = NBA)
+summary(PointsReg2)
+```
+Let's see if we can remove another one of the insignificant variables.
+The next one, based on p-value, that we would want to remove is defensive rebounds - DRB.
+So again, let's create our model, taking out defensive rebounds, and calling this PointsReg3.
+```{r}
+PointsReg3 <- lm(PTS ~ X2PA + X3PA + FTA + AST + ORB + TOV + STL + BLK , data = NBA)
+summary(PointsReg3)
+```
+Now remove blocks - BLK:
+```{r}
+PointsReg4 <- lm(PTS ~ X2PA + X3PA + FTA + AST + ORB + TOV + STL, data = NBA)
+summary(PointsReg3)
+```
+And let's take a look now at the sum of squared errors and the root mean square error, just
+to make sure we didn't inflate those too much by removing a few variables.
+```{r}
+(SSE_4 <- sum(PointsReg4$residuals^2))
+(RMSE_4 <- sqrt(SSE_4 / nrow(NBA)))
+```
+The new sum of squared errors is now 28,421,465. Again, I find this very difficult to interpret.
+I like to look at the root mean squared error instead. So the root mean squared error here is just RMSE_4,
+and so it's 184.5. So although we've increased the root mean squared error a little bit by removing those variables, it's really a very, very, small amount. Essentially, we've kept the root mean squared error the same.
+
+## So it seems like we've narrowed down on a much better model because it's simpler, it's more interpretable, and it's got just about the same amount of error.
+
+# 2. Make Prediction
+
+Next we'll try to make predictions for the 2012-2013 season.
+We'll need to load our test set because our training set only included data from 1980 up until the 2011-2012 season.
+So let's call it NBA_test.
+```{r}
+NBA_test <- read.csv("NBA_test.csv")
+```
+Let's try to predict using our model that we made previously, how many points we'll
+see in the 2012-2013 season. Let's call this PointsPrediction.
+```{r}
+PointsPredictions <- predict(PointsReg4, newdata = NBA_test)
+```
+## How model is good?
+**Out-of-sample R-squared**
+
+OK, so now that we have our prediction, how good is it? We can compute the out of sample R-squared.
+This is a measurement of how well the model predicts on test data.
+
+The R-squared value we had before from our model, the 0.8991, you might remember, is the measure
+of an in-sample R-squared, which is how well the model fits the training data.
+But to get a measure of the predictions goodness of fit, we need to calculate the out of sample R-squared.
+So let's do that here.
+
+We need to compute the sum of squared errors and so this here is just the sum of the predicted amount
+minus the actual amount of points squared and summed.
+```{r}
+SSE <- sum((PointsPredictions - NBA_test$PTS)^2)
+```
+And we need the total sums of squares,
+which is just the sum of the average number of points
+minus the test actual number of points:
+```{r}
+SST <- sum((mean(NBA$PTS) - NBA_test$PTS)^2)
+```
+So the R-squared here then is calculated as usual, 1 minus the sum of squared errors divided
+by total sums of squares.
+```{r}
+(R2 <- 1 - SSE / SST)
+```
+We can also calculate the root mean squared error the same way as before, root mean squared error
+is going to be the square root of the sum of squared errors divided by n, which is the number of rows in our test data
+set.
+```{r}
+(RMSE_t <- sqrt(SSE / nrow(NBA_test)))
+```
+

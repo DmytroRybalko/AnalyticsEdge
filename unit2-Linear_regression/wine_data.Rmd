@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+Load data
+```{r}
+wine <- read.csv("data/wine.csv")
+```
+Build simple model
+```{r}
+model1 <- lm(Price ~ AGST, data = wine)
+summary(model1)
+```
+
+See resuduals and compute SSE:
+```{r}
+model1$residuals
+(SSE <- sum(model1$residuals^2))
+```
+Use model with 2 variables
+```{r}
+model2 <- lm(Price ~ AGST + HarvestRain, data = wine)
+summary(model2)
+```
+Use model with all variables
+```{r}
+model3 <- lm(Price ~ AGST + HarvestRain + WinterRain + Age + FrancePop, data = wine)
+summary(model3)
+```
+
+Let's see the correlation between Age and FrancePop:
+```{r}
+cor(wine$Age, wine$FrancePop)
+```
+It means that these two variables are highly correlated so we must choose only one for our model.
+```{r}
+(SSE3 <- model3$residuals^2 %>% sum())
+```
+
+See the corellation between all data in dataset:
+```{r}
+cor(wine)
+```
+
+Model for doing ex:
+```{r}
+model4 <- lm(Price ~ HarvestRain + WinterRain, data = wine)
+summary(model4)
+```
+Final model
+```{r}
+model5 <- lm(Price ~ AGST + HarvestRain + WinterRain + Age, data = wine)
+summary(model5)
+```
+# 7. Making prediction
+Download test data:
+```{r}
+wineTest <- read.csv("data/wine_test.csv")
+str(wineTest)
+```
+Let's make prediction for the test dataset:
+```{r}
+(predictTest <- predict(model5, newdata = wineTest))
+```
+Let's find Sum of squared errors (SSE):
+```{r}
+(SSE <- sum((wineTest$Price - predictTest)^2))
+```
+Total sum of squared errors (SST):
+```{r}
+(SST <- sum((wineTest$Price - mean(wine$Price))^2))
+```
+R-squared is:
+```{r}
+(1 - SSE / SST)
+```
