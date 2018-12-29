@@ -4,6 +4,6 @@
 .Ruserdata
 packrat/lib*/
 packrat/src/
-.pdf
-.txt
-
+*.pdf
+*.txt
+*.html

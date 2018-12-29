@@ -1,0 +1,88 @@
+---
+title: "Framingham Heart Study"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ROCR)
+library(caTools)
+```
+  
+# **Intro**
+In this lecture, we'll focus on the risk factors that they collected data for in the original data collection for the Framingham Heart Study. We'll be using an anonymized version of the original data that was collected. This data set includes several demographic risk factors-- the sex of the patient, male or female; the age of the patient in years; the education level coded as either 1 for some high school, 2 for a high school diploma or GED, 3 for some college or vocational school, and 4 for a college degree. The data set also includes behavioral risk factors associated with smoking-- whether or not the patient is a current smoker and the number of cigarettes that the person smoked on average in one day. While it is now widely known that smoking increases the risk of heart disease, the idea of smoking being bad for you was a novel idea in the 1940s. Medical history risk factors were also included. These were whether or not the patient was on blood pressure medication, whether or not the patient had previously had a stroke, whether or not the patient was hypertensive, and whether or not the patient had diabetes.  
+  
+# **Workflow**  
+  
+Now that we have identified a set of risk factors, let's use this data to predict the 10 year risk of CHD.  
+First, we'll randomly split our patients into a training set and a testing set.  
+Then, we'll use logistic regression to predict whether or not a patient experienced CHD within 10 years of the first examination. Keep in mind that all of the risk factors were collected at the first examination of the patients.  
+After building our model, we'll evaluate the predictive power of the model on the test set.  
+  
+```{r}
+framingham <- read.csv("data/framingham.csv")
+```
+Let's take a look at our data by using the str function.
+```{r}
+str(framingham)
+```
+Now let's split our data into a training set and a testing set using sample.split.  
+Here, we'll put 65% of the data in the training set. When you have more data like we do here, you can afford to put less data in the training set
+and more in the testing set. This will increase our confidence in the ability of the model to extend to new data since we have a larger test set, and still give us enough data in the training set to create our model. You typically want to put somewhere between 50% and 80% of the data in the training set.
+```{r}
+set.seed(1000)
+split <- sample.split(framingham$TenYearCHD, SplitRatio = 0.65)
+```
+Now, let's split up our data using subset.
+```{r}
+train <- subset(framingham, split == TRUE)
+test <- subset(framingham, split == FALSE)
+```
+Now we're ready to build our logistic regression model using the training set.
+```{r}
+framinghamLog <- glm(TenYearCHD ~ ., data = train, family = "binomial")
+```
+Let's take a look at the summary of our model.
+```{r}
+summary(framinghamLog)
+```
+It looks like male, age, prevalent stroke, total cholesterol, systolic blood pressure, and glucose are all significant in our model. Cigarettes per day and prevalent hypertension are almost significant. All of the significant variables have positive coefficients, meaning that higher values in these variables contribute to a higher probability of 10-year coronary heart disease.  
+  
+Now, let's use this model to make predictions on our test set.
+```{r}
+predictTest <- predict(framinghamLog, type = "response", newdata = test)
+```
+Now, let's use a threshold value of 0.5 to create a confusion matrix.
+```{r}
+table(test$TenYearCHD, predictTest > 0.5)
+```
+With a threshold of 0.5, we predict an outcome of 1, the true column, very rarely. This means that our model rarely predicts a 10-year CHD risk above 50%. 
+    
+Let's compute the out-of-sample AUC
+```{r}
+ROCRpred = prediction(predictTest, test$TenYearCHD)
+as.numeric(performance(ROCRpred, "auc")@y.values)
+```
+This will give us the AUC value on our testing set. So we have an AUC of about 74% on our test set, which means that the model can differentiate between low risk patients and high risk patients pretty well. As we saw in R, we were able to build a logistic regression model with a few interesting properties. It rarely predicted 10-year CHD risk above 50%. So the accuracy of the model was very close to the baseline model.
+However, the model could differentiate between low risk patients and high risk patients pretty well with an out-of-sample AUC of 0.74. Additionally, some of the significant variables suggest possible interventions to prevent CHD. We saw that more cigarettes per day, higher cholesterol, higher
+systolic blood pressure, and higher glucose levels all increased risk.  
+  
+# QQ:
+  
+1) What is the sensitivity/recall of this model?  
+Sensitivity / Recall = TP/(TP+FN)
+```{r}
+11/(11 + 187)
+```
+2) What is specificity?  
+Specificity = TN/(TN+FP)
+```{r}
+1069/(1069 + 6)
+```
+3) What is precision?  
+Precision = TP/(TP+FP)
+```{r}
+11/(11 + 6)
+```

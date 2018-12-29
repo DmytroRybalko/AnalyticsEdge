@@ -1,0 +1,134 @@
+---
+title: "Polling Data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+Load data
+```{r}
+pollingNA <- read.csv("data/PollingData.csv")
+polling <- read.csv("data/PollingData_Imputed.csv")
+```
+
+Compare Rassmussen and SurveyUSA columns from both datasets:
+```{r}
+cbind(pollingNA$Rasmussen, polling$Rasmussen,
+      pollingNA$SurveyUSA, polling$SurveyUSA) %>% View()
+```
+Now, we're ready to actually start building models. So as usual, the first thing we're going to do is split our data into a training and a testing set. And for this problem, we're actually going to train on data from the 2004 and 2008 elections, and we're going to test on data from the 2012
+presidential election.  
+
+```{r}
+train <- subset(polling, Year == 2004 | Year == 2008)
+test <- subset(polling, Year == 2012)
+```
+So now that we've broken it down into a training and a testing set, we want to understand the prediction of our baseline model against which we want to compare a later logistic regression model. So to do that, we'll look at the breakdown of the dependent variable in the training set using the table function.  
+```{r}
+table(train$Republican)
+```
+What we can see here is that in 47 of the 100 training observations, the Democrat won the state, and in 53 of the observations, the Republican won the state. So our simple baseline model is always going to predict the more common outcome, which is that the Republican is going to win the state.  
+  
+And we see that the simple baseline model will have accuracy of 53% on the training set.  
+  
+Now, unfortunately, this is a pretty weak model. It always predicts Republican, even for a very landslide Democratic state, where the Democrat was polling by 15% or 20% ahead of the Republican. So nobody would really consider this to be a credible model. So we need to think of a smarter baseline model against which we can compare our logistic regression models that we're going to develop later.  
+So a reasonable smart baseline would be to just take one of the polls-- in our case, we'll take Rasmussen-- and make a prediction based on who poll said was winning in the state. So for instance, if the Republican is polling ahead, the Rasmussen smart baseline would just pick the Republican to be the winner. If the Democrat was ahead, it would pick the Democrat. And if they were tied, the model would not know which one to select.  
+    
+So to compute this smart baseline, we're going to use a new function called the sign function. And what this function does is, if it's passed a positive number, it returns the value 1. If it's passed a negative number, it returns negative 1. And if it's passed 0, it returns 0.  
+  
+So now, we're ready to actually compute this prediction for all of our training set. And we can take a look at the breakdown of that using the table function applied to the sign of the training set's Rasmussen variable. And what we can see is that in 56 of the 100 training set observations, the smart baseline predicted that the Republican was going to win. In 42 instances, it predicted the Democrat. And in two instances, it was inconclusive. So what we really want to do is to see the breakdown of how the smart baseline model does, compared to the actual result
+-- who actually won the state.  
+```{r}
+table(sign(train$Rasmussen))
+```
+So we want to again use the table function, but this time, we want to compare the training set's outcome against the sign of the polling data.
+```{r}
+table(train$Republican, sign(train$Rasmussen))
+```
+So in this table, the rows are the true outcome -- 1 is for Republican, 0 is for Democrat -- and the columns are the smart baseline predictions, -1, 0, or 1. What we can see is in the top left corner over here, we have 42 observations where the Rasmussen smart baseline predicted the Democrat would win, and the Democrat actually did win. There were 52 observations where the smart baseline predicted the Republican would win, and the Republican actually did win.  
+Again, there were those two inconclusive observations. And finally, there were four mistakes. There were four times where the smart baseline model predicted that the Republican would win, but actually the Democrat won the state. So as we can see, this model, with four mistakes and two inconclusive results out of the 100 training set observations is doing much, much better than the naive baseline, which simply was always predicting the Republican would win and made 47 mistakes on the same data.  
+  
+Now, as we start to think about building regression models with this data set, we need to consider the possibility that there is multicollinearity within the independent variables. And there's a good reason to suspect that there would be multicollinearity amongst the variables, because in some sense, they're all measuring the same thing, which is how strong the Republican candidate is performing in the particular state.  
+  
+So to compute the correlation, we're going to want to take the correlation amongst just the independent variables that we're going to be using to predict, and we can also add in the dependent variable to this correlation matrix. So I'll take cor of the training set but just limit it to the independent variables-- Rasmussen, SurveyUSA, PropR, and DiffCount. And then also, we'll add in the dependent variable, Republican.
+```{r}
+cor(train[c("Rasmussen", "SurveyUSA", "PropR", "DiffCount", "Republican")])
+```
+So let's first consider the case where we want to build a logistic regression model with just one variable. So in this case, it stands to reason that the variable we'd want to add would be the one that is most highly correlated with the outcome, Republican. So if we read the bottom row, which is the correlation of each variable to Republican, we see that PropR is probably the best candidate to include in our single-variable model, because it's so highly correlated, meaning it's going to do a good job of predicting the Republican status.  
+  
+So let's build a model.
+```{r}
+model <- glm(Republican ~ PropR, data = train, family = "binomial")
+summary(model)
+```
+And we can see that it looks pretty nice in terms of its significance and the sign of the coefficients. We have a lot of stars over here. PropR is the proportion of the polls that said the Republican won. We see that that has a very high coefficient in terms of predicting that the Republican will win in the state, which makes a lot of sense. And we'll note down that the AIC measuring the strength of the model is 19.8. So this seems like a very reasonable model. Let's see how it does in terms of actually predicting the Republican outcome on the training set.  
+```{r}
+pred1 <- predict(model, type = "response")
+```
+So first, we want to compute the predictions, the predicted probabilities that the Republican is going to win on the training set. So we'll create a vector called pred1, prediction one, then we'll call the predict function. We'll pass it our model one. And we're not going to pass it newdata,
+because we're just making predictions on the training set right now. We're not looking at test set predictions. But we do need to pass it type = "response" to get probabilities out as the predictions. And now, we want to see how well it's doing.
+```{r}
+table(train$Republican, pred1 >= 0.5)
+```
+So we see that on the training set, this model with one variable as a prediction makes four mistakes, which is just about the same as our smart baseline model. So now, let's see if we can improve on this performance by adding in another variable.  
+  
+So if we go back up to our correlations here, we're going to be searching, since there's so much multicollinearity, we might be searching for a pair of variables that has a relatively lower correlation with each other, because they might kind of work together to improve the prediction overall of the Republican outcome. If two variables are highly, highly correlated, they're less likely to improve predictions together, since they're so similar in their correlation structure. So it looks like, just looking at this top left four by four matrix, which is the correlations between all
+the independent variables, basically the least correlated pairs of variables are either Rasmussen and DiffCount, or SurveyUSA and DiffCount.  
+So the idea would be to try out one of these pairs in our two-variable model. So we'll go ahead and try out SurveyUSA and DiffCount together in our second model.
+```{r}
+model2 <- glm(Republican ~ SurveyUSA + DiffCount, data = train, family = "binomial")
+```
+And now, just like before, we're going to want to compute out our predictions. So we'll say pred2 is equal to the predict of our model 2, again, with type = "response", because we need to get those probabilities. Again, we're not passing in newdata. This is a training set prediction.
+```{r}
+pred2 <- predict(model2, type = "response")
+```
+And finally, we can use the up arrows to see how our second model's predictions are doing at predicting the Republican outcome in the training set.
+```{r}
+table(train$Republican, pred2 >= 0.5)
+```
+And we can see that we made one less mistake. We made three mistakes instead of four on the training set-- so a little better than the smart baseline but nothing too impressive.  
+  
+And the last thing we're going to want to do is to actually look at the model and see if it makes sense.
+```{r}
+summary(model2)
+```
+And we can see that there are some things that are pluses. For instance, the AIC has a smaller value, which suggests a stronger model. And the estimates have, again, the sign we would expect. So SurveyUSA and DiffCount both have positive coefficients in predicting if the Republican wins
+the state, which makes sense. But a weakness of this model is that neither of these variables has a significance of a star or better, which means that they are less significant statistically. So there are definitely some strengths and weaknesses between the two-variable and the one-variable model. We'll go ahead and use the two-variable model when we make our predictions on the testing set.  
+  
+# Test Set Predictions  
+  
+Now it's time to evaluate our models on the testing set. So the first model we're going to want to look at is that smart baseline model that basically just took a look at the polling results from the Rasmussen poll and used those to determine who was predicted to win the election.
+So it's very easy to compute the outcome for this simple baseline on the testing set. We're going to want to table the testing set outcome variable, Republican, and we're going to compare that against the actual outcome of the smart baseline, which as you recall would be the sign of the testing set's Rasmussen variables.  
+```{r}
+table(test$Republican, sign(test$Rasmussen))
+```
+And we can see that for these results, there are 18 times where the smart baseline predicted that the Democrat would win and it's correct, 21 where it predicted the Republican would win and was correct, two times when it was inconclusive, and four times where it predicted Republican but the Democrat actually won. So that's four mistakes and two inconclusive results on the testing set.  
+  
+So we need to obtain final testing set prediction from our model.
+```{r}
+testPredict <- predict(model2, newdata = test, type = "response")
+```
+And the moment of truth, we're finally going to table the test set Republican value against the test prediction being greater than or equal to 0.5, at least a 50% probability of the Republican winning.  
+```{r}
+table(test$Republican, testPredict >= 0.5)
+```
+And we see that for this particular case, in all but one of the 45 observations in the testing set, we're correct. Now, we could have tried changing this threshold from 0.5 to other values and computed out an ROC curve, but that doesn't quite make as much sense in this setting where we're just trying to accurately predict the outcome of each state and we don't care more about one sort of error-- when we predicted Republican
+and it was actually Democrat-- than the other, where we predicted Democrat and it was actually Republican. So in this particular case, we feel OK just using the cutoff of 0.5 to evaluate our model.  
+  
+So to actually pull out the mistake we made, we can just take a subset of the testing set and limit it to when we predicted true, but actually the Democrat won, which is the case when that one failed. So this would be when TestPrediction is greater than or equal to 0.5, and it was not a Republican.  
+```{r}
+subset(test, testPredict >= 0.5 & Republican == 0)
+```
+So here is that subset, which just has one observation since we made just one mistake. So this was for the year 2012, the testing set year.
+This was the state of Florida. And looking through these predictor variables, we see why we made the mistake. The Rasmussen poll gave the Republican a two percentage point lead, SurveyUSA called a tie, DiffCount said there were six more polls that predicted Republican than Democrat,
+and two thirds of the polls predicted the Republican was going to win. But actually in this case, the Republican didn't win. Barack Obama won the state of Florida in 2012 over Mitt Romney.  
+So the models here are not magic, and given this sort of data, it's pretty unsurprising that our model actually didn't get Florida correct in this case and made the mistake. However, overall, it seems to be outperforming the smart baseline that we selected, and so we think that maybe this would be a nice model to use in the election prediction.
+
+
+## Questions:
+1) What is multiple imputation in which we fill in the missing
+values based on the non-missing values for an observation? (mice package)  
