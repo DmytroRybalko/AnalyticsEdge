@@ -1,0 +1,267 @@
+---
+title: "Decision Trees in R"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(caTools)
+library(ROCR)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(caret)
+library(e1071)
+```
+
+In this video, we'll see how to build a **CART** model in R. Let's start by reading in the data file **stevens.csv**.
+
+```{r}
+stevens <- read.csv("data/stevens.csv")
+```
+Let's take a look at our data using the str function.
+```{r}
+str(stevens)
+```
+We have 566 observations, or Supreme Court cases, and nine different variables.  
+**Docket** is just a unique identifier for each case. **Term** is the year of the case.  
+Then we have our six independent variables:  
++ **the circuitcourt of origin**
++ **the issue area of the case**
++ **the type of petitioner**
++ **the type of respondent**
++ **the lower court direction**, and whether or not the petitioner argued that a law or practice was **unconstitutional**.  
+The last variable is our **dependent variable**, whether or not Justice Stevens voted to reverse the case: 1 for reverse, and 0 for affirm.   
+# Splitting testing and train set  
+  
+Now before building models, we need to split our data into a training set and a testing set. We'll do this using the sample.split function,
+like we did last week for logistic regression.
+```{r}
+set.seed(3000)
+spl <- sample.split(stevens$Reverse, SplitRatio = 0.7)
+```
+Now, let's create our training and testing sets using the subset function.
+```{r}
+Train <- subset(stevens, spl == TRUE)
+Test <- subset(stevens, spl == FALSE)
+```
+
+## Build CART model (Classification and Regression Trees)  
+  
+First we need to install and load the **rpart** package and the **rpart.plot** package.  
+Next, build our model:
+```{r}
+StevenseTree <- rpart(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, method = "class", minbucket = 25)
+```
+Now we'll give two additional arguments here. The first one is method = "class". This tells rpart to build a classification tree, instead of
+a regression tree. You'll see how we can create regression trees in recitation.  
+The last argument we'll give is minbucket = 25. This limits the tree so that it doesn't overfit to our training set.  
+  
+Now let's plot our tree using the prp function, where the only argument is the name of our model, StevensTree.
+```{r}
+prp(StevenseTree)
+```
+You should see the tree pop up in the graphics window. The first split of our tree is whether or not the lower court decision is liberal.
+If it is, then we move to the left in the tree. And we check the respondent. If the respondent is a criminal defendant (CRI), injured person (INJ), politician (POL), state (STA), or the United States, we predict 0, or affirm.  
+You can see here that the prp function abbreviates the values of the independent variables. If you're not sure what the abbreviations are,
+you could create a table of the variable to see all of the possible values. prp will select the abbreviation so that they're uniquely identifiable.  
+So if you made a table, you could see that CRI stands for criminal defendant, INJ stands for injured person, etc.  
+  
+A CART tree is a series of decision rules which can easily be explained.  
+  
+## Make prediction  
+  
+Now let's see how well our CART model does at making predictions for the test set.
+```{r}
+PredictCART <- predict(StevenseTree, newdata = Test, type = "class")
+```
+And we'll add a third argument here, which is type = "class". We need to give this argument when making predictions for our CART model if we want the majority class predictions. This is like using a threshold of 0.5. We'll see in a few minutes how we can leave this argument out
+and still get probabilities from our CART model.  
+  
+Now let's compute the accuracy of our model by building a confusion matrix.
+```{r}
+table(Test$Reverse, PredictCART)
+```
+What is precision?  
+Precision = TP/(TP+FP)
+```{r}
+71/(71 + 36)
+```
+If you were to build a logistic regression model, you would get an accuracy of 0.665 and a baseline model that always predicts Reverse, the most common outcome, has an accuracy of 0.547. So our CART model significantly beats the baseline and is competitive with logistic regression. It's also much more interpretable than a logistic regression model would be.  
+  
+## Generate ROC  
+  
+Lastly, to evaluate our model, let's generate an ROC curve for our CART model using the ROCR package. First, we need to load the package with the library function, and then we need to generate our predictions again, this time without the type = "class" argument. We'll call them PredictROC, and we'll use the predict function, giving just as the two arguments StevensTree and newdata = Test.  
+```{r}
+PredictROC <- predict(StevenseTree, newdata = Test)
+```
+For each observation in the test set, it gives two numbers which can be thought of as the probability of outcome 0  and the probability of outcome 1. More concretely, each test set observation is classified into a subset, or bucket, of our CART tree. These numbers give the percentage of training set data in that subset with outcome 0 and the percentage of data in the training set in that subset with outcome 1.
+We'll use the second column as our probabilities to generate an ROC curve.  
+So just like we did last week for logistic regression, we'll start by using the prediction function. We'll call the output pred, and then use prediction, where the first argument is the second column of PredictROC, which we can access with square brackets, and the second argument is the true outcome values, Test$Reverse. 
+```{r}
+pred <- prediction(PredictROC[, 2], Test$Reverse)
+```
+Now we need to use the performance function, where the first argument is the outcome of the prediction function, and then the next two arguments are true positive rate and false positive rate, what we want on the x and y-axes of our ROC curve. Now we can just plot our ROC curve by typing plot(perf).
+```{r}
+perf <- performance(pred, "tpr", "fpr")
+plot(perf)
+```
+# Quick Question:
+  
+1) Compute the AUC of the CART model from the previous video:
+```{r}
+as.numeric(performance(pred, "auc")@y.values)
+```
+2) Now, recall that in Video 4, our tree had 7 splits. Let's see how this changes if we change the value of minbucket.  
+  
+First build a CART model that is similar to the one we built in Video 4, except change the minbucket parameter to 5. Plot the tree.  
+  
+How many splits does the tree have?
+```{r}
+StevenseTree2 <- rpart(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, method = "class", minbucket = 5)
+prp(StevenseTree2)
+```
+  
+**Answer:**16
+  
+Now build a CART model that is similar to the one we built in Video 4, except change the minbucket parameter to 100. Plot the tree.
+How many splits does the tree have?
+```{r}
+StevenseTree3 <- rpart(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, method = "class", minbucket = 100)
+prp(StevenseTree3)
+```
+  
+**Answer:**1  
+  
+# Randome Forests  
+  
+In our R console, let's start by installing and loading the package **randomForest**.  
+Now we're ready to build our random forest model.  For random forests, we need to give two additional arguments. These are **nodesize**, also known as minbucket for CART, and we'll set this equal to 25, the same value we used for our CART model. And then we need to set the parameter **ntree**. This is the number of trees to build. And we'll build 200 trees here.  
+```{r}
+StevenseForest <- randomForest(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, nodesize = 25, ntree = 200)
+```
+In CART, we added the argument method="class", so that it was clear that we're doing a classification problem. As I mentioned earlier, trees can also be used for regression problems, which you'll see in the recitation. The randomForest function does not have a method argument. So when we want to do a classification problem, we need to make sure outcome is a factor.
+```{r}
+Train$Reverse <- as.factor(Train$Reverse)
+Test$Reverse <- as.factor(Test$Reverse)
+```
+Rebuild the model:
+```{r}
+StevenseForest <- randomForest(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, nodesize = 25, ntree = 200)
+```
+Now let's try creating our random forest again. Just use the up arrow to get back to the random forest line and hit Enter.  
+We didn't get a warning message this time so our model is ready to make predictions. Let's compute predictions on our test set.
+```{r}
+PredictForest <- predict(StevenseForest, newdata = Test)
+```
+Let's look at the confusion matrix to compute our accuracy. We'll use the table function and first give the true outcome, Test$Reverse, and then our predictions, PredictForest.
+```{r}
+table(Test$Reverse, PredictForest)
+```
+What is precision?  
+Precision = TP/(TP+FP)
+```{r}
+75/(75 + 35)
+```
+What is the sensitivity/recall of this model?  
+Sensitivity / Recall = TP/(TP+FN)
+```{r}
+75/(75+18)
+```
+What is F1-score:
+```{r}
+2*(0.6818 * 0.8065)/(0.6818 + 0.8065)
+```
+  
+Keep in mind that Random Forests has a random component. You may have gotten a different confusion matrix than me because there's a random component to this method.
+  
+# Quicq Questions
+  
+When creating random forest models, you might still get different answers from the ones you see here even if you set the random seed. This has to do with different operating systems and the random forest implementation.  
+  
+Let's see what happens if we set the seed to two different values and create two different random forest models.  
+    
+1) First, set the seed to 100, and the re-build the random forest model, exactly like we did in the previous video (Video 5). Then make predictions on the test set. What is the accuracy of the model on the test set?
+```{r}
+set.seed(100)
+
+StevenseForest2 <- randomForest(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, nodesize = 25, ntree = 200)
+
+PredictForest2 <- predict(StevenseForest2, newdata = Test)
+
+table(Test$Reverse, PredictForest2)
+```
+What is accurasy?
+```{r}
+(74 + 46)/(46 + 31 + 19 + 74)
+```
+2) Now, set the seed to 200, and then re-build the random forest model, exactly like we did in the previous video (Video 5). Then make predictions on the test set. What is the accuracy of this model on the test set?
+```{r}
+set.seed(200)
+
+StevenseForest3 <- randomForest(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, nodesize = 25, ntree = 200)
+
+PredictForest3 <- predict(StevenseForest3, newdata = Test)
+
+table(Test$Reverse, PredictForest3)
+```
+What is accurasy?
+```{r}
+(75 + 43)/(43 + 34 + 18 + 75)
+```
+  
+# K-fold Cross-Validation   
+  
+First, we need to define how many folds we want. We can do this using the trainControl function.  
+```{r}
+numFolds <- trainControl(method = "cv", number = 10)
+```
+Then we need to pick the possible values for our cp parameter, using the expand.grid function. So we'll call it cpGrid, and then use expand.grid, where the only argument is .cp = seq(0.01,0.5,0.01). This will define our cp parameters to test as numbers from 0.01 to 0.5, in increments of 0.01.
+```{r}
+cpGrid <- expand.grid(.cp = seq(0.01, 0.5, 0.01))
+```
+Now, we're ready to perform cross validation. We'll do this using the train function, where the first argument is similar to that when we're building models.
+```{r}
+train(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst,
+     data = Train,
+     method = "rpart",
+     trControl = numFolds,
+     tuneGrid = cpGrid)
+```
+After a few seconds, you should get a table describing the cross validation accuracy for different cp parameters.  
+The first column gives the cp parameter that was tested, and the second column gives the cross validation accuracy for that cp value.  
+The accuracy starts lower, and then increases, and then will start decreasing again, as we saw in the slides. At the bottom of the output, it says, "Accuracy was used to select the optimal model using the largest value.  
+The final value used for the model was cp = 0.17." This is the cp value we want to use in our CART model.  
+
+So now let's create a new CART model with this value of cp, instead of the minbucket parameter.
+```{r}
+StevensTreeCV <- rpart(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst,
+                       data = Train,
+                       method = "class",
+                       cp = 0.17)
+```
+Now, let's make predictions on our test set using this model.
+```{r}
+PredictCV <- predict(StevensTreeCV, newdata = Test, type = "class")
+```
+Now let's create our confusion matrix
+```{r}
+table(Test$Reverse, PredictCV)
+```
+So the accuracy of this model is
+```{r}
+(59+64)/(59+64+18+29)
+```
+Remember that the accuracy of our previous CART model was 0.659.  
+  
+Cross validation helps us make sure we're selecting a good parameter value, and often this will significantly increase the accuracy.
+If we had already happened to select a good parameter value, then the accuracy might not of increased that much. But by using cross validation, we can be sure that we're selecting a smart parameter value.  
+  
+**Quick Question:**Plot the tree that we created using cross-validation. How many splits does it have?
+```{r}
+prp(StevensTreeCV)
+```
+
+

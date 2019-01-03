@@ -1,0 +1,87 @@
+---
+title: "Decision Trees (CART)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+![](img_pdf/1-Variables.png)  
+In this problem, our dependent variable is whether or not Justice Stevens voted to reverse the lower court decision. This is a binary variable taking value 1 if Justice Stevens decided to reverse or overturn the lower court decision, and taking value 0 if Justice Stevens voted to affirm or maintain the lower court decision. Our independent variables are six different properties of the case.  
+![](img_pdf/2-LogisticRegression4JusticeStevens.png)
+  
+Now that we have our data and variables, we are ready to predict the decisions of Justice Stevens. We can use logistic regression, and we get a model where some of the most significant variables are: whether or not the case is from the 2nd circuit court, with a coefficient of 1.66;
+whether or not the case is from the 4th circuit court, with a coefficient of 2.82; and whether or not the lower court decision was liberal, with a coefficient of negative 1.22.  
+  
+While this tells us that the case being from the 2nd or 4th circuit courts is predictive of Justice Stevens reversing the case, and the lower court decision being liberal is predictive of Justice Stevens affirming the case, it's difficult to understand which factors are more important due to things like the scales of the variables, and the possibility of multicollinearity. It's also difficult to quickly evaluate
+what the prediction would be for a new case.  
+
+![](img_pdf/3-ClassificationAndRegressionTrees.png)
+  
+So instead of logistic regression, Martin and his colleagues used a method called classification and regression trees, or **CART**. This method builds what is called a tree by splitting on the values of the independent variables. To predict the outcome for a new observation or case, you can follow the splits in the tree and at the end, you predict the most frequent outcome in the training set that followed the same path.  
+Some advantages of CART are that it does not assume a linear model, like logistic regression or linear regression, and it's a very interpretable model.
+  
+![](img_pdf/4-SplitInCARTs.png)
+  
+Let's look at an example. This plot shows sample data for two independent variables, x and y, and each data point is colored by the outcome variable, red or gray. CART tries to split this data into subsets so that each subset is as pure or homogeneous as possible. The first three splits that CART would create are shown here. Then the standard prediction made by a CART model is just the majority in each subset.
+If a new observation fell into one of these two subsets, then we would predict red, since the majority of the observations in those subsets are red. However, if a new observation fell into one of these two subsets, we would predict gray, since the majority of the observations
+in those two subsets are gray.  
+  
+A CART model is represented by what we call a tree. The tree for the splits we just generated is shown on the right. The first split tests whether the variable x is less than 60. If yes, the model says to predict red, and if no, the model moves on to the next split. Then, the second split checks whether or not the variable y is less than 20. If no, the model says to predict gray, but if yes, the model moves on to the next split. The third split checks whether or not the variable x is less than 85. If yes, then the model says to predict red, and if no,
+the model says to predict gray.  
+  
+There are a couple things to keep in mind when reading trees. In this tree, and for the trees we'll generate in R, a yes response is always to the left and a no response is always to the right. Also, make sure you always start at the top of the tree. The x less than 85 split only counts for observations for which x is greater than 60 and y is less than 20. In the next video, we'll discuss how CART decides how many splits to generate and how the final predictions are made.  
+  
+![](img_pdf/5-WhenDoesCART_stop_splitting.png)
+  
+In the previous video, we generated a CART tree with three splits, but why not two, or four, or even five? There are different ways to control how many splits are generated. One way is by setting a lower bound for the number of data points in each subset. In R, this is called the minbucket parameter, for the minimum number of observations in each bucket or subset. The smaller minbucket is, the more splits will be generated. But if it's too small, overfitting will occur. This means that CART will fit the training set almost perfectly. But this is bad because then the model will probably not perform well on test set data or new data. On the other hand, if the minbucket parameter
+is too large, the model will be too simple and the accuracy will be poor. Later in the lecture, we will learn about a nice method for selecting the stopping parameter.  
+  
+![](img_pdf/6-PredictionFromCARTs.png)
+  
+In each subset of a CART tree, we have a bucket of observations, which may contain both possible outcomes. In the small example we showed in the previous video, we have classified each subset as either red or gray depending on the majority in that subset. In the Supreme Court case, we'll be classifying observations as either affirm or reverse. Instead of just taking the majority outcome to be the prediction, we can compute the percentage of data in a subset of each type of outcome. As an example, if we have a subset with 10 affirms and two reverses, then 87% of the data is affirm. Then, just like in logistic regression, we can use a threshold value to obtain our prediction. For this example, we would predict affirm with a threshold of 0.5 since the majority is affirm. But if we increase that threshold to 0.9, we would predict reverse for this example.  
+  
+# Randome Forests  
+    
+![](img_pdf/7-RandomForests.png)
+  
+This method was designed to improve the prediction accuracy of CART and works by building a large number of CART trees. Unfortunately, this makes the method less interpretable than CART, so often you need to decide if you value the interpretability or the increase in accuracy more. To make a prediction for a new observation, each tree in the forest votes on the outcome and we pick the outcome that receives the majority of the votes.
+  
+![](img_pdf/8-BuildingManyTrees.png)
+  
+So how does random forests build many CART trees? We can't just run CART multiple times because it would create the same tree every time.
+To prevent this, random forests only allows each tree to split on a random subset of the available independent variables, and each tree is built from what we call a **bagged** or **bootstrapped** sample of the data. This just means that the data used as the training data for each treeis selected randomly with replacement.  
+  
+Let's look at an example. Suppose we have five data points in our training set. We'll call them 1, 2, 3, 4, and 5. For the first tree, we'll randomly pick five data points randomly sampled with replacement. So the data could be 2, 4, 5, 2, and 1. Each time we pick one of the five data points regardless of whether or not it's been selected already. These would be the five data points we would use when constructing the first CART tree. Then we repeat this process for the second tree. This time the data set might be 3, 5, 1, 5, and 2. And we would use this data when building the second CART tree. Then we would repeat this process for each additional tree we want to create. So since each tree sees a different set of variables and a different set of data, we get what's called a forest of many different trees.  
+  
+![](img_pdf/9-RandomeForestParameters.png)
+
+Just like CART, random forests has some parameter values that need to be selected.  
+  
+The first is the minimum number of observations in a subset, or the minbucket parameter from CART. When we create a random forest in R, this will be called **nodesize**. A smaller value of nodesize, which leads to bigger trees, may take longer in R. Random forests is much more computationally intensive than CART.  
+  
+The second parameter is the number of trees to build, which is called **ntree** in R. This should not be set too small, but the larger it is the longer it will take. A couple hundred trees is typically plenty. A nice thing about random forests is that it's not as sensitive to the parameter values as CART is.  
+  
+# K-fold Cross-Validation  
+  
+![](img_pdf/10-K-fold_Cross-Validation.png)
+  
+We'll use a method called K-fold Cross Validation, which is one way to properly select the parameter value. This method works by going through the following steps. First, we split the training set into k equally sized subsets, or folds. In this example, k equals 5. Then we select k - 1, or four folds, to estimate the model, and compute predictions on the remaining one fold, which is often referred to as the validation set. We build a model and make predictions for each possible parameter value we're considering. Then we repeat this for each of the other folds, or pieces of our training set. So we would build a model using folds 1, 2, 3, and 5 to make predictions on fold 4, and then we would build a model using folds 1, 2, 4, and 5 to make predictions on fold 3, etc. So ultimately, cross validation builds many models, one for each fold and possible parameter value.  
+  
+![](img_pdf/11-OutputOfK-fodlCrossValidation.png)
+  
+Then, for each candidate parameter value, and for each fold, we can compute the accuracy of the model. This plot shows the possible parameter values on the x-axis, and the accuracy of the model on the y-axis. This line shows the accuracy of our model on fold 1. We can also compute the accuracy of the model using each of the other folds as the validation sets. We then average the accuracy over the k folds to determine the final parameter value that we want to use.  
+Typically, the behavior looks like this -- if the parameter value is too small, then the accuracy is lower, because the model is probably
+over-fit to the training set. But if the parameter value is too large, then the accuracy is also lower, because the model is too simple.
+In this case, we would pick a parameter value around six, because it leads to the maximum average accuracy over all parameter values.  
+  
+![](img_pdf/12-Cross-ValidationInR.png)
+  
+So far, we've used the parameter minbucket to limit our tree in R. When we use cross validation in R, we'll use a parameter called cp instead. This is the complexity parameter. It's like Adjusted R-squared for linear regression, and AIC for logistic regression, in that it measures the trade-off between model complexity and accuracy on the training set. A smaller cp value leads to a bigger tree, so a smaller cp value might over-fit the model to the training set. But a cp value that's too large might build a model that's too simple.  
+  
+# Questions:  
+  
+1) About random forest ![](https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm)
+2) About ![caret](https://cran.r-project.org/web/packages/randomForest/randomForest.pdf)
+

@@ -170,3 +170,6 @@ See how to label the threshold values in R by color-coding the curve in **logist
 
 # Terminology:
 Logistic Response Function is ... 
+AIC is ...  
+
+
