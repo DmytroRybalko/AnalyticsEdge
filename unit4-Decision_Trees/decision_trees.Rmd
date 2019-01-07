@@ -80,6 +80,27 @@ In this case, we would pick a parameter value around six, because it leads to th
   
 So far, we've used the parameter minbucket to limit our tree in R. When we use cross validation in R, we'll use a parameter called cp instead. This is the complexity parameter. It's like Adjusted R-squared for linear regression, and AIC for logistic regression, in that it measures the trade-off between model complexity and accuracy on the training set. A smaller cp value leads to a bigger tree, so a smaller cp value might over-fit the model to the training set. But a cp value that's too large might build a model that's too simple.  
   
+# CP: Complexity parameter  
+  
+![](img_pdf/31-complexity_parameter.png)
+  
+Recall that the first tree we made using latitude and longitude only had many splits, but we were able to trim it without losing much accuracy.
+The intuition we gain is, having too many splits is bad for generalization-- that is, performance on the test set - so we should penalize the complexity.  
+  
+![](img_pdf/32-complexity_parameter.png)
+  
+
+![](img_pdf/33-complexity_parameter.png)
+  
+
+![](img_pdf/34-complexity_parameter.png)
+    
+  
+![](img_pdf/35-complexity_parameter.png)
+  
+When you're actually using cp in your R code, you don't need to think exactly what it means - just that small numbers of cp encourage large trees, and large values of cp encourage small trees.
+
+
 # Questions:  
   
 1) About random forest ![](https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm)
