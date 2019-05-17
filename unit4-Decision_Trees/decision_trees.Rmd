@@ -33,17 +33,73 @@ the model says to predict gray.
   
 There are a couple things to keep in mind when reading trees. In this tree, and for the trees we'll generate in R, a yes response is always to the left and a no response is always to the right. Also, make sure you always start at the top of the tree. The x less than 85 split only counts for observations for which x is greater than 60 and y is less than 20. In the next video, we'll discuss how CART decides how many splits to generate and how the final predictions are made.  
   
+## Як дерево вибирає по якій саме фічі відбувається розбиття? 
+  
+**Entropy** (ентропія) Это интуитивно базируется на понятию прироста информации, основанного на энтропии.
+  
+$$S = - \sum_{i = 1}^N {p _i log _2 p _i}$$
+  
+Прирост информации (information gain, IG) при разбиении выборки по признаку:
+$$IG(Q)  = S_0 - \sum_{i = 1}^q {N _i \over N} S _i$$
+  
+В основе популярных алгоритмов построения дерева решений, таких как ID3 и C4.5, лежит принцип жадной максимизации прироста информации – на каждом шаге выбирается тот признак, при разделении по которому прирост информации оказывается наибольшим.
+
+**Gini impurity** (невизначеність Джині)  
+  
+$$G = 1 - \sum_{k} {(p _k)^2}$$
+  
+Максимизацию этого критерия можно интерпретировать как максимизацию числа пар объектов одного класса, оказавшихся в одном поддереве.
+    
+[**Приклад дерева**](https://habrahabr.ru/company/ods/blog/322534/#kak-stroitsya-derevo-resheniy)  
+  
+## Regression Tree (quantitive features)  
+  
+Допустим, в выборке имеется количественный признак "Возраст", имеющий много уникальных значений. Дерево решений будет искать лучшее (по критерию типа прироста информации) разбиение выборки, проверяя бинарные признаки типа "Возраст < 17", "Возраст < 22.87" и т.д. Но что если таких "нарезаний" возраста слишком много? А что если есть еще количественный признак "Зарплата", и зарплату тоже можно "нарезать" большим числом способов? Получается слишком много бинарных признаков для выбора лучшего на каждом шаге построения дерева. Для решения этой проблемы применяют эвристики для ограничения числа порогов, с которыми мы сравниваем количественный признак [...](https://habrahabr.ru/company/ods/blog/322534/#kak-derevo-resheniy-rabotaet-s-kolichestvennymi-priznakami)  
+  
+Самая простая эвристика для обработки количественных признаков в дереве решений: количественный признак сортируется по возрастанию, и в дереве проверяются только те пороги, при которых целевой признак меняет значение. 
+
+## What are tree's parameters?  
+  
+В принципе дерево решений можно построить до такой глубины, чтоб в каждом листе был ровно один объект. Но на практике это не делается (если строится только одно дерево) из-за того, что такое дерево будет переобученным – оно слишком настроится на обучающую выборку и будет плохо работать на прогноз на новых данных. Где-то внизу дерева, на большой глубине будут появляться разбиения по менее важным признакам (например, приехал ли клиент из Саратова или Костромы). Если утрировать, может оказаться так, что из всех 4 клиентов, пришедших в банк за кредитом в зеленых штанах, никто не вернул кредит. Но мы не хотим, чтобы наша модель классификации порождала такие специфичные правила [...](https://habrahabr.ru/company/ods/blog/322534/#osnovnye-parametry-dereva)  
+  
+**Когда деревья строятся до максимальной глубины:** **Randome Forest** (композиция многих деревьев) усредняет ответы деревьев, построенных до максимальной глубины.  
+  
+Основной способ борьбы с переобучением в случае деревьев решений: искусственное ограничение глубины или минимального числа объектов в листе.  
+  
 ![](img_pdf/5-WhenDoesCART_stop_splitting.png)
   
-In the previous video, we generated a CART tree with three splits, but why not two, or four, or even five? There are different ways to control how many splits are generated. One way is by setting a lower bound for the number of data points in each subset. In R, this is called the minbucket parameter, for the minimum number of observations in each bucket or subset. The smaller minbucket is, the more splits will be generated. But if it's too small, overfitting will occur. This means that CART will fit the training set almost perfectly. But this is bad because then the model will probably not perform well on test set data or new data. On the other hand, if the minbucket parameter
-is too large, the model will be too simple and the accuracy will be poor. Later in the lecture, we will learn about a nice method for selecting the stopping parameter.  
+Параметры деревьев:
+
+* максимальная глубина дерева;
+
+* максимальное число признаков, по которым ищется лучшее разбиение в дереве;
+
+* минимальное число объектов в листе.  (minbucket in R)
+  
+Параметры дерева надо настраивать в зависимости от входных данных, и делается это обычно с помощью **cross-validation**.
   
 ![](img_pdf/6-PredictionFromCARTs.png)
   
 In each subset of a CART tree, we have a bucket of observations, which may contain both possible outcomes. In the small example we showed in the previous video, we have classified each subset as either red or gray depending on the majority in that subset. In the Supreme Court case, we'll be classifying observations as either affirm or reverse. Instead of just taking the majority outcome to be the prediction, we can compute the percentage of data in a subset of each type of outcome. As an example, if we have a subset with 10 affirms and two reverses, then 87% of the data is affirm. Then, just like in logistic regression, we can use a threshold value to obtain our prediction. For this example, we would predict affirm with a threshold of 0.5 since the majority is affirm. But if we increase that threshold to 0.9, we would predict reverse for this example.  
   
 # Randome Forests  
-    
+  
+## **Bagging (Bootstrap aggregation)**  
+  
+Bagging основан на статистическом методе **bootstrap**, который позволяет оценивать многие статистики сложных распределений.  
+
+> Метод бутстрэпа заключается в следующем. Пусть имеется выборка  размера. Равномерно возьмем из выборки  объектов с возвращением. Это означает, что мы будем  раз выбирать произвольный объект выборки (считаем, что каждый объект «достается» с одинаковой вероятностью ), причем каждый раз мы выбираем из всех исходных  объектов. Можно представить себе мешок, из которого достают шарики: выбранный на каком-то шаге шарик возвращается обратно в мешок, и следующий выбор опять делается равновероятно из того же числа шариков. Отметим, что из-за возвращения среди них окажутся повторы. Обозначим новую выборку через . Повторяя процедуру  раз, сгенерируем  подвыборок . Теперь мы имеем достаточно большое число выборок и можем оценивать различные статистики исходного распределения.  
+  
+Бэггинг позволяет снизить дисперсию (variance) обучаемого классификатора.  
+  
+Эффективность бэггинга достигается благодаря тому, что базовые алгоритмы, обученные по различным подвыборкам, получаются достаточно различными, и их ошибки взаимно компенсируются при голосовании.  
+  
+Бэггинг эффективен на малых выборках.  
+  
+## Out-of-bag error  
+  
+![](img_pdf/oob_error_habr.png)
+  
 ![](img_pdf/7-RandomForests.png)
   
 This method was designed to improve the prediction accuracy of CART and works by building a large number of CART trees. Unfortunately, this makes the method less interpretable than CART, so often you need to decide if you value the interpretability or the increase in accuracy more. To make a prediction for a new observation, each tree in the forest votes on the outcome and we pick the outcome that receives the majority of the votes.
@@ -103,6 +159,13 @@ When you're actually using cp in your R code, you don't need to think exactly wh
 
 # Questions:  
   
-1) About random forest ![](https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm)
-2) About ![caret](https://cran.r-project.org/web/packages/randomForest/randomForest.pdf)
+## 1) About random forest
+![](https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm)  
+  
+## 2) About ![caret](https://cran.r-project.org/web/packages/randomForest/randomForest.pdf)
+  
+
+
+
+## Random forest  
 

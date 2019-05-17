@@ -77,8 +77,7 @@ Now let's see how well our CART model does at making predictions for the test se
 ```{r}
 PredictCART <- predict(StevenseTree, newdata = Test, type = "class")
 ```
-And we'll add a third argument here, which is type = "class". We need to give this argument when making predictions for our CART model if we want the majority class predictions. This is like using a threshold of 0.5. We'll see in a few minutes how we can leave this argument out
-and still get probabilities from our CART model.  
+And we'll add a third argument here, which is type = "class". We need to give this argument when making predictions for our CART model if we want the majority class predictions. This is like using a threshold of 0.5. We'll see in a few minutes how we can leave this argument out and still get probabilities from our CART model.  
   
 Now let's compute the accuracy of our model by building a confusion matrix.
 ```{r}
@@ -177,7 +176,7 @@ What is F1-score:
   
 Keep in mind that Random Forests has a random component. You may have gotten a different confusion matrix than me because there's a random component to this method.
   
-# Quicq Questions
+# Quick Questions
   
 When creating random forest models, you might still get different answers from the ones you see here even if you set the random seed. This has to do with different operating systems and the random forest implementation.  
   
