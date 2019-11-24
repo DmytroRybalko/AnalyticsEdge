@@ -1,0 +1,66 @@
+---
+title: "Stepik"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Load data:
+```{r}
+state_data <- read.csv("states.csv")
+```
+Let's view our data:
+```{r}
+glimpse(state_data)
+```
+We begin by exploring the data
+```{r}
+ggplot(state_data, aes(x = hs_grad, y = poverty)) +
+  geom_point()
+```
+Build the model
+```{r}
+poverty_grade_model <- lm(poverty ~ hs_grad, data = state_data)
+summary(poverty_grade_model)
+```
+And show regression line on graph:
+```{r}
+ggplot(state_data, aes(x = hs_grad, y = poverty)) +
+  geom_point() +
+  geom_smooth(method = lm)
+```
+
+## Analysis of resudials
+
+```{r}
+state_data$resud_poverty_grad <- poverty_grade_model$residuals
+ggplot(state_data, aes(x = 1:length(poverty_grade_model$residuals), y = resud_poverty_grad)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = 'red')
+```
+QQ-plot:
+```{r}
+qqnorm(state_data$resud_poverty_grad, pch = 1, frame = FALSE) +
+qqline(state_data$resud_poverty_grad, col = "steelblue", lwd = 2)
+```
+
+## Multiple regression
+
+```{r}
+full_model <- lm(poverty ~ metro_res + white + hs_grad + female_house, data = state_data)
+summary(full_model)
+```
+
+```{r}
+pairs(state_data)
+```
+
+Choose the best model:
+```{r}
+best_model <- lm(poverty ~ metro_res + white + hs_grad, data = state_data)
+summary(best_model)
+```
+
