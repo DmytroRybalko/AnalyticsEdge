@@ -41,7 +41,8 @@ cor(wine$Age, wine$FrancePop)
 ```
 It means that these two variables are highly correlated so we must choose only one for our model.
 ```{r}
-(SSE3 <- model3$residuals^2 %>% sum())
+SSE3 <- model3$residuals^2
+sum(SSE3)
 ```
 
 See the corellation between all data in dataset:
@@ -54,11 +55,17 @@ Model for doing ex:
 model4 <- lm(Price ~ HarvestRain + WinterRain, data = wine)
 summary(model4)
 ```
-Final model
+Model 5
 ```{r}
-model5 <- lm(Price ~ AGST + HarvestRain + WinterRain + Age, data = wine)
+model5 <- lm(Price ~ AGST + HarvestRain + WinterRain, data = wine)
 summary(model5)
 ```
+Final model
+```{r}
+model <- lm(Price ~ AGST + HarvestRain + WinterRain + Age, data = wine)
+summary(model5)
+```
+
 # 7. Making prediction
 Download test data:
 ```{r}
@@ -67,7 +74,7 @@ str(wineTest)
 ```
 Let's make prediction for the test dataset:
 ```{r}
-(predictTest <- predict(model5, newdata = wineTest))
+(predictTest <- predict(model, newdata = wineTest))
 ```
 Let's find Sum of squared errors (SSE):
 ```{r}

@@ -5,23 +5,28 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
+
+library(ggplot2)
+library(tibble)
+library(purrr)
 ```
 Load data
 ```{r}
-baseball <- read.csv("baseball.csv")
+baseball <- read.csv("data/baseball.csv")
 ```
 Look into data:
 ```{r}
-glimpse(baseball)
+str(baseball)
 ```
 Let's filter our data:
 ```{r}
 moneyball <- subset(baseball, Year < 2002)
+str(moneyball)
 ```
 Let's create new variable
 ```{r}
 moneyball$RD = moneyball$RS - moneyball$RA
+str(moneyball)
 ```
 Make scatterplot:
 ```{r}
@@ -40,7 +45,9 @@ to score at least 135 more runs than they allow to win at least 95 games.
 ```{r}
 80.88 + 0.1058*(713 - 614)
 ```
-# 3. Predicting runs
+
+# 3. Predicting runs  
+  
 We want to see if we can use linear regression to predict runs scored, RS, using these three hitting statistics - on-base percentage, slugging percentage and batting average.
 ```{r}
 RunsReg <- lm(RS ~ OBP + SLG + BA, data = moneyball)
@@ -58,10 +65,9 @@ so it's hard to interpret the coefficients of our model. Let's try removing batt
 And then, hit the up arrow twice again to look at the new model. We can see that our independent variables are still
 very significant, the coefficients are both positive as we expect, and our R-squared is still about 0.93.
 So this model is simpler, with only two independent variables, and has about the same R-squared. Overall a better model.
-
-# Quiq Questions:
-## 1. If a baseball team's OBP is 0.311 and SLG is 0.405, how many runs do we expect the team to score?
-
+  
+## 1. If a baseball team's OBP is 0.311 and SLG is 0.405, how many runs do we expect the team to score?  
+  
 ```{r}
 RunsReg$coefficients
 ```
@@ -91,7 +97,7 @@ Players <- tibble(OBP = c(0.338, 0.391, 0.369, 0.313, 0.361),
 ```
 Find answer
 ```{r}
-map2(Players$OBP, Players$SLG, ~(-804.627 + 2737.768 * .x + 1584.9086 * .y))
+map2_dbl(Players$OBP, Players$SLG, ~(-804.627 + 2737.768 * .x + 1584.9086 * .y))
 ```
 ## Answer: we have to choose 2 and 5 players: 1,065 + 300 < 1500. The best choice!!!
 
@@ -112,29 +118,28 @@ In your R console, create a corresponding rank vector by typing
 teamRank <- c(1, 2, 3, 3, 4, 4, 4, 4, 5, 5)
 ```
 
-In this quick question, we'll see how well these rankings correlate with the regular season wins of the teams. In 2012, the ranking of the teams and their regular season wins were as follows:
-
-Rank 1: San Francisco Giants (Wins = 94)
-Rank 2: Detroit Tigers (Wins = 88)
-Rank 3: New York Yankees (Wins = 95), and St. Louis Cardinals (Wins = 88)
-Rank 4: Baltimore Orioles (Wins = 93), Oakland A's (Wins = 94), Washington Nationals (Wins = 98), Cincinnati Reds (Wins = 97)
-Rank 5: Texas Rangers (Wins = 93), and Atlanta Braves (Wins = 94) 
-
+In this quick question, we'll see how well these rankings correlate with the regular season wins of the teams. In 2012, the ranking of the teams and their regular season wins were as follows:  
+  
+Rank 1: San Francisco Giants (Wins = 94)  
+Rank 2: Detroit Tigers (Wins = 88)  
+Rank 3: New York Yankees (Wins = 95), and St. Louis Cardinals (Wins = 88)  
+Rank 4: Baltimore Orioles (Wins = 93), Oakland A's (Wins = 94), Washington Nationals (Wins = 98), Cincinnati Reds (Wins = 97)  
+Rank 5: Texas Rangers (Wins = 93), and Atlanta Braves (Wins = 94)  
+  
 Create a vector in R called wins2012, that has the wins of each team in 2012, in order of rank (the vector should have 10 numbers).
 
 ```{r}
 wins2012 <- c(94, 88, 95, 88, 93, 94, 98, 97, 93, 94)
 ```
-
-In 2013, the ranking of the teams and their regular season wins were as follows:
-
+In 2013, the ranking of the teams and their regular season wins were as follows:  
+  
 Rank 1: Boston Red Sox (Wins = 97)
 Rank 2: St. Louis Cardinals (Wins = 97)
 Rank 3: Los Angeles Dodgers (Wins = 92), and Detroit Tigers (Wins = 93)
 Rank 4: Tampa Bay Rays (Wins = 92), Oakland A's (Wins = 96), Pittsburgh Pirates (Wins = 94), and Atlanta Braves (Wins = 96)
 Rank 5: Cleveland Indians (Wins = 92), and Cincinnati Reds (Wins = 90) 
-
-Create another vector in R called wins2013, that has the wins of each team in 2013, in order of rank (the vector should have 10 numbers).
+  
+Create another vector in R called wins2013, that has the wins of each team in 2013, in order of rank (the vector should have 10 numbers).  
 ```{r}
 wins2013 <- c(97, 97, 92, 93, 92, 96, 94, 96, 92, 90)
 ```
@@ -150,5 +155,3 @@ cor(teamRank, wins2012)
 ```{r}
 cor(teamRank, wins2013)
 ```
-
-# Questions:
