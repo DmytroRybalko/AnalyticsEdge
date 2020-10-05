@@ -1,0 +1,182 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Video 2 - Reading in the Dataset
+
+Get the current directory
+```{r}
+getwd()
+```
+
+Read the csv file
+```{r}
+USDA <- read.csv("data/USDA.csv")
+```
+
+Structure of the dataset
+```{r}
+str(USDA)
+```
+
+Statistical summary
+```{r}
+summary(USDA)
+```
+
+# Video 3 - Basic Data Analysis
+
+Vector notation
+```{r}
+USDA$Sodium
+```
+
+Finding the index of the food with highest sodium levels
+```{r}
+which.max(USDA$Sodium)
+```
+
+Get names of variables in the dataset
+```{r}
+names(USDA)
+```
+
+Get the name of the food with highest sodium levels
+```{r}
+USDA$Description[265]
+```
+
+Create a subset of the foods with sodium content above 10,000mg
+```{r}
+HighSodium = subset(USDA, Sodium > 10000)
+```
+
+Count the number of rows, or observations
+```{r}
+nrow(HighSodium)
+```
+
+Output names of the foods with high sodium content
+```{r}
+HighSodium$Description
+```
+
+Finding the index of CAVIAR in the dataset
+```{r}
+match("CAVIAR", USDA$Description)
+```
+
+Find amount of sodium in caviar
+```{r}
+USDA$Sodium[4154]
+```
+
+Doing it in one command!
+```{r}
+USDA$Sodium[match("CAVIAR", USDA$Description)]
+```
+
+Summary function over Sodium vector
+```{r}
+summary(USDA$Sodium)
+```
+
+Standard deviation
+```{r}
+sd(USDA$Sodium, na.rm = TRUE)
+```
+
+# Video 4 - Plots
+
+Scatter Plots
+```{r}
+plot(USDA$Protein, USDA$TotalFat)
+```
+
+Add xlabel, ylabel and title
+```{r}
+plot(USDA$Protein, USDA$TotalFat, xlab="Protein", ylab = "Fat", main = "Protein vs Fat", col = "red")
+```
+
+Creating a histogram
+```{r}
+hist(USDA$VitaminC, xlab = "Vitamin C (mg)", main = "Histogram of Vitamin C")
+```
+
+Add limits to x-axis
+```{r}
+hist(USDA$VitaminC, xlab = "Vitamin C (mg)", main = "Histogram of Vitamin C", xlim = c(0,100))
+```
+
+Specify breaks of histogram
+```{r}
+hist(USDA$VitaminC, xlab = "Vitamin C (mg)", main = "Histogram of Vitamin C", xlim = c(0,100), breaks=100)
+```
+```{r}
+hist(USDA$VitaminC, xlab = "Vitamin C (mg)", main = "Histogram of Vitamin C", xlim = c(0,100), breaks=2000)
+```
+
+Boxplots
+```{r}
+boxplot(USDA$Sugar, ylab = "Sugar (g)", main = "Boxplot of Sugar")
+```
+
+# Video 5 - Adding a variable
+
+Creating a variable that takes value 1 if the food has higher sodium than average, 0 otherwise
+```{r}
+HighSodium = as.numeric(USDA$Sodium > mean(USDA$Sodium, na.rm=TRUE))
+HighSodium[1]
+HighSodium[50]
+```
+```{r}
+str(HighSodium)
+```
+
+Adding the variable to the dataset
+```{r}
+USDA$HighSodium = as.numeric(USDA$Sodium > mean(USDA$Sodium, na.rm=TRUE))
+str(USDA)
+```
+
+Similarly for HighProtein, HigCarbs, HighFat
+```{r}
+USDA$HighCarbs = as.numeric(USDA$Carbohydrate > mean(USDA$Carbohydrate, na.rm=TRUE))
+USDA$HighProtein = as.numeric(USDA$Protein > mean(USDA$Protein, na.rm=TRUE))
+USDA$HighFat = as.numeric(USDA$TotalFat > mean(USDA$TotalFat, na.rm=TRUE))
+str(USDA)
+```
+
+# Video 6 - Summary Tables
+
+How many foods have higher sodium level than average?
+```{r}
+table(USDA$HighSodium)
+```
+
+How many foods have both high sodium and high fat?
+```{r}
+table(USDA$HighSodium, USDA$HighFat)
+```
+
+Average amount of iron sorted by high and low protein?
+```{r}
+tapply(USDA$Iron, USDA$HighProtein, mean, na.rm=TRUE)
+```
+Comment: food with low protein content (0) have on average 2.55 mg of iron
+
+Maximum level of Vitamin C in hfoods with high and low carbs?
+```{r}
+tapply(USDA$VitaminC, USDA$HighCarbs, max, na.rm=TRUE)
+```
+
+Using summary function with tapply
+```{r}
+tapply(USDA$VitaminC, USDA$HighCarbs, summary, na.rm=TRUE)
+```
+

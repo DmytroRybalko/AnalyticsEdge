@@ -1,0 +1,56 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load library
+```{r cars}
+WHO <- read.csv('data/WHO.csv')
+```
+
+## Look into data
+```{r}
+str(WHO)
+```
+
+## Questions
+
+What is the mean value of the "Over60" variable?
+
+```{r}
+mean(WHO$Over60)
+```
+Which country has the smallest percentage of the population over 60?
+
+```{r}
+# which.min(WHO$Over60)
+WHO$Country[which.min(WHO$Over60)]
+```
+
+Which country has the largest literacy rate?
+```{r}
+# which.max(WHO$LiteracyRate)
+WHO$Country[which.max(WHO$LiteracyRate)]
+```
+
+## Data visualization
+
+```{r}
+boxplot(WHO$LifeExpectancy ~ WHO$Region, xlab="", ylab="Life Expectancy", main="Life Expectancy of Countries by Region")
+```
+Use table:
+```{r}
+table(WHO$Region)
+```
+## Questions
+
+Use the tapply function to find the average child mortality rate of countries in each region.  
+Which region has the lowest average child mortality rate across all countries in that region?
+```{r}
+tapply(WHO$ChildMortality, WHO$Region, mean)
+```
+
