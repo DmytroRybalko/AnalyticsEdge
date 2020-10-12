@@ -6,7 +6,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
+library(dplyr)
+library(magrittr)
+library(tibble)
+library(caTools)
 library(ROCR)
 ```
 
@@ -51,7 +54,7 @@ quality <- read.csv("data/quality.csv")
 ```
 Let's take a look at the structure  
 ```{r}
-glimpse(quality)
+str(quality)
 ```
 We have 131 observations, one for each of the patients in our data set, and 14 different variables. **MemberID** just numbers the patients from 1 to 131. The 12 variables from **InpatientDays** to **AcuteDrugGapSmall** are the independent variables. We'll be using the number of office visits and the number of prescriptions for narcotics that the patient had.  
   
@@ -68,11 +71,8 @@ If we did this, we would get 98 out of the 131 observations correct, or have an 
 
 ## Split data into train and testing set  
   
-Last week, we always gave you the training data set and the testing data set in separate files. This week, we only have one data set. So we want to randomly split our data set into a training set and testing set so that we'll have a test set to measure our out-of-sample accuracy.
-We'll use for this **caTools** package.  
+Last week, we always gave you the training data set and the testing data set in separate files. This week, we only have one data set. So we want to randomly split our data set into a training set and testing set so that we'll have a test set to measure our out-of-sample accuracy. We'll use for this **caTools** package.  
 ```{r}
-library(caTools)
-
 set.seed(88)
 split <- sample.split(quality$PoorCare, SplitRatio = 0.75)
 ```
@@ -85,7 +85,6 @@ Let's take a look at split:
 split
 ```
 There is a TRUE or FALSE value for each of our observations. TRUE means that we should put that observation in the training set, and FALSE means that we should put that observation in the testing set. So now let's create our training and testing sets using the subset function.  
-  
 We'll call our training set qualityTrain and use the subset function to take a subset of quality and only taking the observations for which split is equal to TRUE.
 ```{r}
 qualityTrain <- subset(quality, split == TRUE)
@@ -145,7 +144,6 @@ qualityTrain %>%
   View()
 ```
 
-
 ## Analysing of prediction result
   
 Let's take a look at the statistical summary of our predictions.
@@ -203,7 +201,7 @@ Now sensitivity is:
 ```{r}
 73/(73 + 1)
 ```
-  
+
 # **ROC curve practice**
   
 Let's go into R and see how to generate these ROC curves.  

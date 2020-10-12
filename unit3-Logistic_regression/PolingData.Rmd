@@ -6,12 +6,25 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
+library(mice)
 ```
 
 Load data
 ```{r}
 pollingNA <- read.csv("data/PollingData.csv")
+str(pollingNA)
+```
+Represent by year:
+```{r}
+table(pollingNA$Year)
+```
+Overview the NA's data:
+```{r}
+summary(pollingNA)
+```
+
+Replace NA's
+```{r}
 polling <- read.csv("data/PollingData_Imputed.csv")
 ```
 

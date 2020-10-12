@@ -6,7 +6,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
 library(ROCR)
 library(caTools)
 ```
@@ -60,6 +59,15 @@ table(test$TenYearCHD, predictTest > 0.5)
 ```
 With a threshold of 0.5, we predict an outcome of 1, the true column, very rarely. This means that our model rarely predicts a 10-year CHD risk above 50%. 
     
+Calculate an accuracy:
+```{r}
+(1069 + 11)/(1069 + 6 + 187 + 11)
+```
+Baseline model accuracy:
+```{r}
+(1069 + 6)/(1069 + 6 +187 + 11)
+```
+
 Let's compute the out-of-sample AUC
 ```{r}
 ROCRpred = prediction(predictTest, test$TenYearCHD)
