@@ -82,6 +82,23 @@ $$G = 1 - \sum_{k} {(p _k)^2}$$
   
 In each subset of a CART tree, we have a bucket of observations, which may contain both possible outcomes. In the small example we showed in the previous video, we have classified each subset as either red or gray depending on the majority in that subset. In the Supreme Court case, we'll be classifying observations as either affirm or reverse. Instead of just taking the majority outcome to be the prediction, we can compute the percentage of data in a subset of each type of outcome. As an example, if we have a subset with 10 affirms and two reverses, then 87% of the data is affirm. Then, just like in logistic regression, we can use a threshold value to obtain our prediction. For this example, we would predict affirm with a threshold of 0.5 since the majority is affirm. But if we increase that threshold to 0.9, we would predict reverse for this example.  
   
+## Important notes about threshold when split buckets   
+  
+*QQ:* Suppose you have a subset of 20 observations, where 14 have outcome A and 6 have outcome B. What proportion of observations have outcome A?  
+*A:* 0.7.  
+  
+*QQ:* If we set the threshold to 0.25 when computing predictions of outcome A, will we predict A or B for these observations?  
+*A:* A.  
+  
+*QQ:* If we set the threshold to 0.5 when computing predictions of outcome A, will we predict A or B for these observations?   
+*A:* A.  
+  
+*QQ:* If we set the threshold to 0.75 when computing predictions of outcome A, will we predict A or B for these observations?  
+  
+*A:* B.  
+  
+*Explanation.* Since 70% of these observations have outcome A, we will predict A if the threshold is below 0.7, and we will predict B if the threshold is above 0.7.  
+  
 # Randome Forests  
   
 ## **Bagging (Bootstrap aggregation)**  
@@ -156,6 +173,31 @@ The intuition we gain is, having too many splits is bad for generalization-- tha
   
 When you're actually using cp in your R code, you don't need to think exactly what it means - just that small numbers of cp encourage large trees, and large values of cp encourage small trees.
 
+## Optimal trees  
+  
+As we saw earlier, the CART model shows variable by variable why the predictions are made. More broadly speaking, CART belongs to a class of models often described as interpretable, white box, transparent, in that they provide insights in understanding the logic for decision making.
+In contrast, the random forest model, belonging to a class called black box models, also makes predictions, but the inner workings of how input translates to predictions is overly complex or unclear. In this case, the predictions are averaged across hundreds of models, making interpreting the meaning of variables and the models difficult.  
+
+![](img_pdf/randome_forest_vs_cart.png)
+In practice, black box models often achieve higher accuracy, as we saw it in the Supreme Court example. But it comes at a cost of the low interpretability. So you might ask, is there a method that achieves both? Recent research from MIT's operations research center provides a promising solution, *Optimal Classification Trees*. Here is how it works.  
+  
+![](img_pdf/randome_forest_vs_cart_2.png)
+
+CART only learns the splits one step at a time in a greedy fashion, often resulting trees far from optimal. Instead, the researchers use modern optimization technique to train the entire tree in one step, achieving holistic optimality.  
+
+![](img_pdf/optimal_trees.png)
+
+In fact, because of the flexibility that the optimization framework provides, it comes in multiple flavors. Here is an example. Like CART, optimal trees can train parallel splits, meaning that it splits one variable at a time. But more interestingly, optimal trees can uniquely train a tree with hyperplane splits, as you see in a diagram here, where multiple thereabouts can be used at a single split level. This adds more modeling flexibility and power. 
+
+![](img_pdf/variants_of_optimal_trees.png)
+
+In a large scale computational experiment with 60 real world data sets, the researchers have shown that OCT and OCT with hyperplanes, shown in blue and green in this plot here, significantly outperform CART in red in terms of out of simple accuracy, even compared against the state of the art black box models such as random forest and XG boost purple and orange. OCT with hyperplanes is still highly competitive. It is also computationally fast, at a speed of about the same order of magnitude as running random forest models.  
+
+![](img_pdf/performance_of_oct.png)
+
+From our experience with real data science cases, being able to understand trust, and explaining a machine learning model, is a highly valuable, if not the most important aspect of a high impact analytics engagement. The development of optimal trees free the machine learning practitioners from having to choose between interpretability and performance. To learn more about optimal trees, check out the paper referenced in the slides.  
+  
+![](img_pdf/summary_of_optimal_trees.png)
 
 # Questions:  
   

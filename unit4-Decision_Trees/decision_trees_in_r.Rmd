@@ -6,7 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
+
 library(caTools)
 library(ROCR)
 library(rpart)
@@ -67,7 +67,8 @@ You should see the tree pop up in the graphics window. The first split of our tr
 If it is, then we move to the left in the tree. And we check the respondent. If the respondent is a criminal defendant (CRI), injured person (INJ), politician (POL), state (STA), or the United States, we predict 0, or affirm.  
 You can see here that the prp function abbreviates the values of the independent variables. If you're not sure what the abbreviations are,
 you could create a table of the variable to see all of the possible values. prp will select the abbreviation so that they're uniquely identifiable.  
-So if you made a table, you could see that CRI stands for criminal defendant, INJ stands for injured person, etc.  
+  
+So if you made a table, you could see that CRI stands for criminal defendant, INJ stands for injured person, etc. So now moving on in our tree, if the respondent is not one of these types, we move on to the next split, and we check the petitioner. If the petitioner is a city, employee, employer, government official, or politician, then we predict 0, or affirm. If not, then we check the circuit court of origin. If it's the 10th, 1st, 3rd, 4th, DC or Federal Court, then we predict 0. Otherwise, we predict 1, or reverse. We can repeat this same process on the other side of the tree if the lower court decision is not liberal. Comparing this to a logistic regression model, we can see that it's very interpretable. A CART tree is a series of decision rules which can easily be explained. Now let's see how well our CART model does at making predictions for the test set. So back in our R Console, we'll call our predictions PredictCART, and we'll use the predict function, where the first argument is the name of our model, StevensTree.  
   
 A CART tree is a series of decision rules which can easily be explained.  
   
@@ -83,6 +84,10 @@ Now let's compute the accuracy of our model by building a confusion matrix.
 ```{r}
 table(Test$Reverse, PredictCART)
 ```
+What is an accuracy?
+```{r}
+(41 + 71)/(41 + 71 + 22 + 36)
+```
 What is precision?  
 Precision = TP/(TP+FP)
 ```{r}
@@ -95,6 +100,7 @@ If you were to build a logistic regression model, you would get an accuracy of 0
 Lastly, to evaluate our model, let's generate an ROC curve for our CART model using the ROCR package. First, we need to load the package with the library function, and then we need to generate our predictions again, this time without the type = "class" argument. We'll call them PredictROC, and we'll use the predict function, giving just as the two arguments StevensTree and newdata = Test.  
 ```{r}
 PredictROC <- predict(StevenseTree, newdata = Test)
+PredictROC[1:10,]
 ```
 For each observation in the test set, it gives two numbers which can be thought of as the probability of outcome 0  and the probability of outcome 1. More concretely, each test set observation is classified into a subset, or bucket, of our CART tree. These numbers give the percentage of training set data in that subset with outcome 0 and the percentage of data in the training set in that subset with outcome 1.
 We'll use the second column as our probabilities to generate an ROC curve.  
@@ -114,10 +120,9 @@ plot(perf)
 as.numeric(performance(pred, "auc")@y.values)
 ```
 2) Now, recall that in Video 4, our tree had 7 splits. Let's see how this changes if we change the value of minbucket.  
-  
 First build a CART model that is similar to the one we built in Video 4, except change the minbucket parameter to 5. Plot the tree.  
-  
-How many splits does the tree have?
+
+*Q:* How many splits does the tree have?
 ```{r}
 StevenseTree2 <- rpart(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, method = "class", minbucket = 5)
 prp(StevenseTree2)
@@ -159,6 +164,10 @@ Let's look at the confusion matrix to compute our accuracy. We'll use the table 
 ```{r}
 table(Test$Reverse, PredictForest)
 ```
+What is accuracy?
+```{r}
+(43 + 76)/(43 +76 + 17 + 34)
+```
 What is precision?  
 Precision = TP/(TP+FP)
 ```{r}
@@ -185,25 +194,19 @@ Let's see what happens if we set the seed to two different values and create two
 1) First, set the seed to 100, and the re-build the random forest model, exactly like we did in the previous video (Video 5). Then make predictions on the test set. What is the accuracy of the model on the test set?
 ```{r}
 set.seed(100)
-
 StevenseForest2 <- randomForest(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, nodesize = 25, ntree = 200)
-
 PredictForest2 <- predict(StevenseForest2, newdata = Test)
-
 table(Test$Reverse, PredictForest2)
 ```
-What is accurasy?
+What is accuracy?
 ```{r}
 (74 + 46)/(46 + 31 + 19 + 74)
 ```
 2) Now, set the seed to 200, and then re-build the random forest model, exactly like we did in the previous video (Video 5). Then make predictions on the test set. What is the accuracy of this model on the test set?
 ```{r}
 set.seed(200)
-
 StevenseForest3 <- randomForest(Reverse ~ Circuit + Issue + Petitioner + Respondent + LowerCourt + Unconst, data = Train, nodesize = 25, ntree = 200)
-
 PredictForest3 <- predict(StevenseForest3, newdata = Test)
-
 table(Test$Reverse, PredictForest3)
 ```
 What is accurasy?
