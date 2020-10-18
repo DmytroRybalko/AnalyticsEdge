@@ -6,7 +6,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(tidyverse)
+#library(tidyverse)
+library(magrittr)
 library(caTools)
 library(rpart)
 library(rpart.plot)
@@ -102,7 +103,8 @@ in this publicly available data set, a number of steps are performed to anonymiz
 ## Prepare Data  
   
 ```{r}
-Claims <- read_csv("data/ClaimsData.csv")
+Claims <- read.csv("data/ClaimsData.csv")
+str(Claims)
 ```
 Let's start by reading our data set into R and taking a look at its structure.  
   
@@ -137,7 +139,20 @@ spl <- sample.split(Claims$bucket2009, SplitRatio = 0.6)
 ClaimsTrain <- subset(Claims, spl == TRUE)
 ClaimsTest <- subset(Claims, spl == FALSE)
 ```
-    
+
+*QQ: What is the average age of patients in the training set, ClaimsTrain?*
+```{r}
+mean(ClaimsTrain$age)
+```
+*QQ: What proportion of people in the training set (ClaimsTrain) had at least one diagnosis code for diabetes?*
+```{r}
+table(ClaimsTrain$diabetes)
+```
+Proportion:
+```{r}
+104672/(170131 + 104672)
+```
+
 ## Baseline Method and Penalty Matrix
   
 Let's now see how the baseline method used by D2Hawkeye would perform on this data set. The baseline method would predict that the cost bucket for a patient in 2009 will be the same as it was in 2008. So let's create a classification matrix to compute the accuracy for the baseline method on the test set.  
@@ -169,6 +184,29 @@ So now to compute the penalty error, we just need to sum it up and divide by the
 sum(as.matrix(table(ClaimsTest$bucket2009, ClaimsTest$bucket2008))*PenaltyMatrix / nrow(ClaimsTest))
 ```
   
+Suppose that instead of the baseline method discussed in the previous video, we used the baseline method of predicting the most frequent outcome for all observations. This new baseline method would predict cost bucket 1 for everyone.  
+  
+*QQ: What would the accuracy of this baseline method be on the test set?*
+```{r}
+table(ClaimsTrain$bucket2009)/nrow(ClaimsTrain)
+```
+*A:* 0.6713  
+  
+*QQ: What would the penalty error of this baseline method be on the test set?*  
+  
+*Explanation.* To compute the accuracy, you can create a table of the variable ClaimsTest$bucket2009:  
+```table(ClaimsTest$bucket2009)```  
+According to the table output, this baseline method would get 122978 observations correct, and all other observations wrong. So the accuracy of this baseline method is 122978/nrow(ClaimsTest) = 0.67127.  
+  
+For the penalty error, since this baseline method predicts 1 for all observations, it would have a penalty error of:
+```{r}
+dplyr::count(ClaimsTest, bucket2009)
+```
+*A:*
+```{r}
+(0*122978 + 2*34840 + 4*16390 + 6*7937 + 8*1057)/nrow(ClaimsTest)
+```
+
 ## Predicting Healthcare Costs in R  
       
 In this video, we'll build a CART model to predict healthcare cost.
