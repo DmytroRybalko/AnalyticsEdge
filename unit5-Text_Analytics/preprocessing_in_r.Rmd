@@ -1,0 +1,211 @@
+---
+title: "Pre-processing text data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tm)
+library(SnowballC)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+```
+
+# Preprocessing Data I
+
+Pre-processing the data can be difficult, but, luckily, R's packages provide easy-to-use functions for the most common tasks. In this video, we'll load and process our data in R. In your R console, let's load the data set tweets.csv with the read.csv function. But since we're working with text data here, we need one extra argument, which is stringsAsFactors=FALSE.  
+  
+```{r}
+tweets <- read.csv("data/tweets.csv", stringsAsFactors=FALSE)
+str(tweets)
+```
+
+You'll always need to add this extra argument when working on a text analytics problem so that the text is read in properly. Now let's take a look at the structure of our data with the str function.  
+  
+We can see that we have 1,181 observations of two variables, the text of the tweet, called Tweet, and the average sentiment score, called Avg for average. The tweet texts are real tweets that we found on the internet directed to Apple with a few cleaned up words. We're more interested in being able to detect the tweets with clear negative sentiment, so let's define a new variable in our data set tweets called Negative. And we'll set this equal to as.factor(tweets$Avg <= -1). 
+
+```{r}
+tweets$Negative = as.factor(tweets$Avg <= -1)
+table(tweets$Negative)
+```
+
+Now to pre-process our text data so that we can use the bag of words approach, we'll be using the tm text mining package.  
+  
+One of the concepts introduced by the tm package is that of a corpus. A corpus is a collection of documents. We'll need to convert our tweets to a corpus for pre-processing. tm can create a corpus in many different ways, but we'll create it from the tweet column of our data frame using two functions, Corpus and VectorSource. We'll call our corpus "corpus" and then use the Corpus and the VectorSource functions called on our tweets variable of our tweets data set.  
+
+```{r}
+corpus <- VCorpus(VectorSource(tweets$Tweet))
+corpus[[1]]$content
+```
+
+This shows us the first tweet in our corpus. Now we're ready to start pre-processing our data. Pre-processing is easy in tm. Each operation, like stemming or removing stop words, can be done with one line in R, where we use the tm_map function. Let's try it out by changing all of the text in our tweets to lowercase.
+
+```{r}
+#corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus[[1]]$content
+```
+
+Now let's remove all punctuation. This is done in a very similar way, except this time we give the argument removePunctuation instead of tolower. Hit the up arrow twice, and in the tm_map function, delete tolower, and type removePunctuation.
+```{r}
+corpus <- tm_map(corpus, content_transformer(removePunctuation))
+corpus[[1]]$content
+```
+Now we want to remove the stop words in our tweets. tm provides a list of stop words for the English language. We can check it out by typing stopwords("english") [1:10].
+```{r}
+stopwords("english")[1:10]
+```
+
+Check the code length:
+```{r}
+length(stopwords("english"))
+```
+Removing words can be done with the removeWords argument to the tm_map function, but we need one extra argument this time-- what the stop words are that we want to remove. We'll remove all of these English stop words, but we'll also remove the word "apple" since all of these tweets have the word "apple" and it probably won't be very useful in our prediction problem. So go ahead and hit the up arrow to get back
+to the tm_map function, delete removePunctuation and, instead, type removeWords.  
+```{r}
+corpus <- tm_map(corpus, content_transformer(function (x) removeWords(x, c("apple", stopwords("english")))))
+corpus[[1]]$content
+```
+
+Now we can see that we have significantly fewer words, only the words that are not stop words. Lastly, we want to stem our document with the stemDocument argument. Go ahead and scroll back up to the removePunctuation, delete removePunctuation, and type stemDocument. If you hit Enter and then look at the first tweet again, we can see that this took off the ending of "customer," "service," "received," and "appstore."  
+```{r}
+corpus <- tm_map(corpus, content_transformer(stemDocument))
+corpus[[1]]$content
+```
+
+In the next video, we'll investigate our corpus and prepare it for our prediction problem.  
+  
+# Preprocessing Data II  (video 6)
+  
+In the previous video, we preprocessed our data, and we're now ready to extract the word frequencies to be used in our prediction problem. The tm package provides a function called DocumentTermMatrix that generates a matrix where the rows correspond to documents, in our case tweets, and the columns correspond to words in those tweets. The values in the matrix are the number of times that word appears in each document. Let's go ahead and generate this matrix and call it "frequencies."  
+
+```{r}
+frequencies <- DocumentTermMatrix(corpus)
+frequencies
+```
+
+```{r}
+# Look at matrix 
+inspect(frequencies[1000:1005,505:515])
+```
+In this range we see that the word "cheer" appears in the tweet 1005, but "cheap" doesn't appear in any of these tweets. This data is what we call sparse. This means that there are many zeros in our matrix. We can look at what the most popular terms are, or words, with the function findFreqTerms.
+```{r}
+findFreqTerms(frequencies, lowfreq = 20)
+```
+We want to call this on our matrix frequencies, and then we want to give an argument lowFreq, which is equal to the minimum number of times a term must appear to be displayed. Let's type 20. We see here 56 different words. So out of the 3,289 words in our matrix, only 56 words appear at least 20 times in our tweets. This means that we probably have a lot of terms that will be pretty useless for our prediction model. The number of terms is an issue for two main reasons. One is computational. More terms means more independent variables, which usually means it takes longer to build our models. The other is in building models, as we mentioned before, the ratio of independent variables to observations will affect how good the model will generalize. So let's remove some terms that don't appear very often.  
+We'll call the output sparse, and we'll use the removeSparseTerms(frequencies, 0.98). The sparsity threshold works as follows. If we say 0.98, this means to only keep terms that appear in 2% or more of the tweets. If we say 0.99, that means to only keep terms that appear in 1% or more of the tweets. If we say 0.995, that means to only keep terms that appear in 0.5% or more of the tweets, about six or more tweets. We'll go ahead and use this sparsity threshold.
+```{r}
+sparse <- removeSparseTerms(frequencies, 0.995)
+```
+If you type sparse, you can see that there's  only 309 terms in our sparse matrix. This is only about 9% of the previous count of 3,289.
+```{r}
+sparse
+```
+```{r}
+tweetsSparse <- as.data.frame(as.matrix(sparse))
+```
+Now let's convert the sparse matrix into a data frame that we'll be able to use for our predictive models. We'll call it tweetsSparse and use the as.data.frame function called on the as.matrix function called on our matrix sparse. This converts sparse to a data frame called tweetsSparse. Since R struggles with variable names that start with a number, and we probably have some words here that start with a number, let's run the make.names function to make sure all of our words are appropriate variable names. To do this type colnames and then in parentheses the name of our data frame, tweetsSparse equals
+```{r}
+colnames(tweetsSparse) <- make.names(colnames(tweetsSparse))
+tweetsSparse
+```
+This will just convert our variable names to make sure they're all appropriate names before we build our predictive models. You should do this each time you've built a data frame using text analytics.  
+  
+Now let's add our dependent variable to this data set. We'll call it tweetsSparse$Negative and set it equal to the original Negative variable from the tweets data frame.
+```{r}
+tweetsSparse$Negative <- tweets$Negative
+```
+
+Lastly, let's split our data into a training set and a testing set, putting 70% of the data in the training set. First we'll have to load the library caTools so that we can use the sample.split function. Then let's set the seed to 123 and create our split using
+sample.split where our dependent variable is tweetsSparse$Negative.  
+```{r}
+set.seed(123)
+split <- sample.split(tweetsSparse$Negative, SplitRatio = 0.7)
+trainSparse <- subset(tweetsSparse, split == TRUE)
+testSparse <- subset(tweetsSparse, split == FALSE)
+```
+Our data is now ready, and we can build our predictive model. In the next video, we'll use CART and logistic regression to predict negative sentiment.  
+  
+# Predicting Sentiment (video 7)  
+  
+Now that we've prepared our data set, let's use CART to build a predictive model.  
+
+```{r}
+tweetCART = rpart(Negative ~ ., data=trainSparse, method="class")
+prp(tweetCART)
+```
+Our tree says that if the word "freak" is in the tweet, then predict TRUE, or negative sentiment. If the word "freak" is not in the tweet, but the word "hate" is, again predict TRUE. If neither of these two words are in the tweet, but the word "wtf" is, also predict TRUE, or negative sentiment. If none of these three words are in the tweet, then predict FALSE, or non-negative sentiment. This tree makes sense intuitively since these three words are generally seen as negative words.  
+  
+Evaluate the numerical performance of our model by making predictions on the test set. We'll call our predictions predictCART.  
+```{r}
+predictCART <- predict(tweetCART, newdata = testSparse, type = "class")
+table(testSparse$Negative, predictCART)
+```
+Compute the accuracy of our model
+```{r}
+(294 + 18) / (nrow(testSparse))
+```
+So the accuracy of our CART model is about 0.88. Let's compare this to a simple baseline model that always predicts non-negative.
+To compute the accuracy of the baseline model, let's make a table of just the outcome variable Negative. So we'll type table, and then in parentheses, testSparse$Negative.
+```{r}
+table(testSparse$Negative)
+```
+This tells us that in our test set we have 300 observations with non-negative sentiment and 55 observations with negative sentiment. So the accuracy of a baseline model that always predicts non-negative would be 300 divided by 355, or 0.845. 
+```{r}
+300/355
+```
+So our CART model does better than the simple baseline model.  
+  
+Create a random forest model:
+```{r}
+set.seed(123)
+tweetRF <- randomForest(Negative ~ ., data = trainSparse)
+```
+We'll again use the default parameter settings. The random forest model takes significantly longer to build than the CART model. We've seen this before when building CART and random forest models, but in this case, the difference is particularly drastic. This is because we have so many independent variables, about 300 different words. So far in this course, we haven't seen data sets with this many independent variables. So keep in mind that for text analytics problems, building a random forest model will take significantly longer
+than building a CART model.
+```{r}
+predictRF <- predict(tweetRF, newdata = testSparse)
+table(testSparse$Negative, predictRF)
+```
+Accuracy:
+```{r}
+(293 + 21)/(nrow(testSparse))
+```
+So our random forest model has an accuracy of 0.885. This is a little better than our CART model, but due to the interpretability of our CART model, I'd probably prefer it over the random forest model. If you were to use cross-validation to pick the cp parameter for the CART model, the accuracy would increase to about the same as the random forest model. So by using a bag-of-words approach and these models, we can reasonably predict sentiment even with a relatively small data set of tweets.  
+
+# Quick Question     
+  
+In the previous video, we used CART and Random Forest to predict sentiment. Let's see how well logistic regression does. Build a logistic regression model (using the training set) to predict "Negative" using all of the independent variables. You may get a warning message after building your model - don't worry (we explain what it means in the explanation).
+```{r}
+tweetLog <- glm(Negative ~ ., data = trainSparse, family = "binomial")
+```
+
+Now, make predictions using the logistic regression model:
+```{r}
+predictLog <- predict(tweetLog, newdata = testSparse, type = "response")
+```
+You might also get a warning message after this command, but don't worry - it is due to the same problem as the previous warning message.  
+  
+Build a confusion matrix (with a threshold of 0.5) and compute the accuracy of the model. What is the accuracy?
+```{r}
+table(testSparse$Negative, predictLog > 0.5)
+```
+Accuracy:  
+```{r}
+(248 + 32) / nrow(testSparse)
+```
+If you were to compute the accuracy on the training set instead, you would see that the model does really well on the training set - this is an example of over-fitting. The model fits the training set really well, but does not perform well on the test set. A logistic regression model with a large number of variables is particularly at risk for overfitting.  
+  
+Is this worse or better than the baseline model accuracy of 84.5%? Think about the properties of logistic regression that might make this the case!  
+
+  
+  
+  
+  
+  
+  
+  
+  

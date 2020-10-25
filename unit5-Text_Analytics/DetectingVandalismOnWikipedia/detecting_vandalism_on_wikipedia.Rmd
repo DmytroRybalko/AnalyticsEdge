@@ -1,0 +1,356 @@
+---
+title: "Detecting Vandalism on Wikipedia"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tm)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+```
+
+# About task
+
+Wikipedia is a free online encyclopedia that anyone can edit and contribute to. It is available in many languages and is growing all the time. On the English language version of Wikipedia:  
+  
+There are currently 4.7 million pages.  
+There have been a total over 760 million edits (also called revisions) over its lifetime.  
+There are approximately 130,000 edits per day.  
+One of the consequences of being editable by anyone is that some people vandalize pages. This can take the form of removing content, adding promotional or inappropriate content, or more subtle shifts that change the meaning of the article. With this many articles and edits per day it is difficult for humans to detect all instances of vandalism and revert (undo) them. As a result, Wikipedia uses bots - computer programs that automatically revert edits that look like vandalism. In this assignment we will attempt to develop a vandalism detector that uses machine learning to distinguish between a valid edit and vandalism.  
+
+# About data  
+  
+The data for this problem is based on the revision history of the page Language. Wikipedia provides a history for each page that consists of the state of the page at each revision. Rather than manually considering each revision, a script was run that checked whether edits stayed or were reverted. If a change was eventually reverted then that revision is marked as vandalism. This may result in some misclassifications, but the script performs well enough for our needs.  
+  
+As a result of this preprocessing, some common processing tasks have already been done, including lower-casing and punctuation removal. The columns in the dataset are:  
+
+*Vandal = 1* if this edit was vandalism, 0 if not.  
+*Minor = 1* if the user marked this edit as a "minor edit", 0 if not.  
+*Loggedin = 1* if the user made this edit while using a Wikipedia account, 0 if they did not.  
+*Added* = The unique words added.  
+*Removed* = The unique words removed.  
+
+Notice the repeated use of unique. The data we have available is not the traditional bag of words - rather it is the set of words that were removed or added. For example, if a word was removed multiple times in a revision it will only appear one time in the "Removed" column.  
+
+# Problem 1.1 - Bags of Words  
+  
+Load the data wiki.csv with the option stringsAsFactors=FALSE, calling the data frame "wiki"
+```{r}
+wiki <- read.csv("wiki.csv", stringsAsFactors = FALSE)
+str(wiki)
+```
+Convert the "Vandal" column to a factor using the command: 
+```{r}
+wiki$Vandal = as.factor(wiki$Vandal)
+str(wiki)
+```
+*Q1. How many cases of vandalism were detected in the history of this page?* 
+```{r}
+table(wiki$Vandal)
+```
+# Problem 1.2 - Bags of Words  
+ 
+We will now use the bag of words approach to build a model. We have two columns of textual data, with different meanings. For example, adding rude words has a different meaning to removing rude words. We'll start like we did in class by building a document term matrix from the Added column. The text already is lowercase and stripped of punctuation. So to pre-process the data, just complete the following four steps: 
+
+1) Create the corpus for the Added column, and call it "corpusAdded"
+```{r}
+corpusAdded <- VCorpus(VectorSource(wiki$Added))
+corpusAdded[[1]]$content
+```
+2) Remove the English-language stopwords.  
+
+Check the number of stop-words:
+```{r}
+length(stopwords("english"))
+```
+
+```{r}
+corpusAdded <- tm_map(corpusAdded, removeWords, stopwords("english"))
+corpusAdded[[1]]$content
+```
+3) Stem the words
+```{r}
+corpusAdded <- tm_map(corpusAdded, stemDocument)
+corpusAdded[[1]]$content
+```
+4) Build the DocumentTermMatrix, and call it dtmAdded
+```{r}
+dtmAdded <- DocumentTermMatrix(corpusAdded)
+dtmAdded
+```
+*Q2: How many terms appear in dtmAdded?*  
+*A:* 6675.  
+
+# Problem 1.3 - Bags of Words
+
+Filter out sparse terms by keeping only terms that appear in 0.3% or more of the revisions, and call the new matrix sparseAdded.  
+*Q3: How many terms appear in sparseAdded?*  
+```{r}
+dtmAdded <- removeSparseTerms(dtmAdded, 0.997)
+dtmAdded
+```
+
+# Problem 1.4 - Bags of Words  
+
+Convert sparseAdded to a data frame called wordsAdded, and then prepend all the words with the letter A, by using the command:
+```{r}
+wordsAdded <- as.data.frame(as.matrix(dtmAdded))
+colnames(wordsAdded) <- paste("A", colnames(wordsAdded))
+wordsAdded
+```
+Now repeat all of the steps we've done so far (create a corpus, remove stop words, stem the document, create a sparse document term matrix, and convert it to a data frame) to create a Removed bag-of-words dataframe, called wordsRemoved, except this time, prepend all of the words with the letter R:
+```{r}
+# Create the corpus for the Removed column
+corpusRemoved <- VCorpus(VectorSource(wiki$Removed))
+
+# Remove the English-language stopwords.
+corpusRemoved <- tm_map(corpusRemoved, removeWords, stopwords("english"))
+
+# Stem the words
+corpusRemoved <- tm_map(corpusRemoved, stemDocument)
+
+# Build the DocumentTermMatrix, and call it dtmAdded
+dtmRemoved <- DocumentTermMatrix(corpusRemoved)
+dtmRemoved
+```
+```{r}
+# Filter out sparse terms by keeping only terms that appear in 0.3% or more
+dtmRemoved <- removeSparseTerms(dtmRemoved, 0.997)
+dtmRemoved
+```
+
+Convert sparseAdded to a data frame called wordsAdded, and then prepend all the words with the letter R, by using the command:
+```{r}
+wordsRemoved <- as.data.frame(as.matrix(dtmRemoved))
+colnames(wordsRemoved) <- paste("R", colnames(wordsRemoved))
+wordsRemoved
+```
+
+*Q4: How many words are in the wordsRemoved data frame?*
+*A:* 162.
+
+# Problem 1.5 - Bags of Words
+
+Combine the two data frames into a data frame called wikiWords with the following line of code:
+```{r}
+wikiWords <- cbind(wordsAdded, wordsRemoved)
+```
+
+The cbind function combines two sets of variables for the same observations into one data frame. Then add the Vandal column (HINT: remember how we added the dependent variable back into our data frame in the Twitter lecture).  
+```{r}
+wikiWords$Vandal <- wiki$Vandal
+```
+
+Set the random seed to 123 and then split the data set using sample.split from the "caTools" package to put 70% in the training set.
+```{r}
+set.seed(123)
+spl <- sample.split(wikiWords$Vandal, 0.7)
+train <- subset(wikiWords, spl == TRUE)
+test <- subset(wikiWords, spl == FALSE)
+```
+
+*Q5: What is the accuracy on the test set of a baseline method that always predicts "not vandalism" (the most frequent outcome)?*
+```{r}
+table(wikiWords$Vandal)
+```
+Accuracy
+```{r}
+2061/(2061 + 1815)
+```
+
+# Problem 1.6 - Bags of Words  
+
+Build a CART model to predict Vandal, using all of the other variables as independent variables. Use the training set to build the model and the default parameters (don't set values for minbucket or cp).
+```{r}
+wikiCART <- rpart(Vandal ~ ., data = train, method = "class")
+```
+
+*Q6: What is the accuracy of the model on the test set, using a threshold of 0.5? (Remember that if you add the argument type="class" when making predictions, the output of predict will automatically use a threshold of 0.5.)*  
+
+Make prediction on test set:
+```{r}
+predCART <- predict(wikiCART, newdata = test)
+predCART[1:10,]
+```
+Confusing matrix:
+```{r}
+table(test$Vandal, predCART[,2] > 0.5)
+```
+Accuracy:
+```{r}
+(618 + 12) / (nrow(test))
+```
+
+# Problem 1.7 - Bags of Words  
+  
+Plot the CART tree.  
+```{r}
+prp(wikiCART)
+```
+
+*Q7:How many word stems does the CART model use?*
+*A:* 2.  
+
+# Problem 1.8 - Bags of Words  
+
+*Q8: Given the performance of the CART model relative to the baseline, what is the best explanation of these results?*
+
+*A:* 
+Although it beats the baseline, bag of words is not very predictive for this problem.  
+*Explanation.* There is no reason to think there was anything wrong with the split. CART did not overfit, which you can check by computing the accuracy of the model on the training set. Over-sparsification is plausible but unlikely, since we selected a very high sparsity parameter. The only conclusion left is simply that bag of words didn't work very well in this case.  
+  
+# Problem 2.1 - Problem-specific Knowledge
+
+We weren't able to improve on the baseline using the raw textual information. More specifically, the words themselves were not useful. There are other options though, and in this section we will try two techniques - *identifying a key class of words*, and *counting words*.  
+  
+The key class of words we will use are website addresses. "Website addresses" (also known as URLs - Uniform Resource Locators) are comprised of two main parts. An example would be "http://www.google.com". The first part is the protocol, which is usually "http" (HyperText Transfer Protocol). The second part is the address of the site, e.g. "www.google.com". We have stripped all punctuation so links to websites appear in the data as one word, e.g. "httpwwwgooglecom". We hypothesize that given that a lot of vandalism seems to be adding links to promotional or irrelevant websites, the presence of a web address is a sign of vandalism.  
+  
+We can search for the presence of a web address in the words added by searching for "http" in the Added column. The grepl function returns TRUE if a string is found in another string, e.g.  
+```grepl("cat","dogs and cats",fixed=TRUE) # TRUE  
+   grepl("cat","dogs and rats",fixed=TRUE) # FALSE```
+  
+Create a copy of your dataframe from the previous question:  
+```{r}
+wikiWords2 <- wikiWords
+```
+
+Make a new column in wikiWords2 that is 1 if "http" was in Added:
+```{r}
+wikiWords2$HTTP <- ifelse(grepl("http", wiki$Added, fixed = TRUE), 1, 0)
+#wiki$Added[1]
+#wikiWords2$HTTP[1]
+```
+
+Based on this new column, how many revisions added a link?
+```{r}
+table(wikiWords2$HTTP)
+```
+
+# Problem 2.2 - Problem-Specific Knowledge  
+
+In problem 1.5, you computed a vector called "spl" that identified the observations to put in the training and testing sets. Use that variable (do not recompute it with sample.split) to make new training and testing sets:
+```{r}
+wikiTrain2 <- subset(wikiWords2, spl == TRUE)
+wikiTest2 <- subset(wikiWords2, spl == FALSE)
+```
+
+Then create a new CART model using this new variable as one of the independent variables.
+```{r}
+wikiCART2 <- rpart(Vandal ~ ., data = wikiTrain2, method = "class")
+```
+
+Make prediction on test set:
+```{r}
+predCART2 <- predict(wikiCART2, newdata = wikiTest2)
+predCART2[1:10,]
+```
+Confusing matrix:
+```{r}
+table(wikiTest2$Vandal, predCART2[,2] > 0.5)
+```
+
+*Q9: What is the new accuracy of the CART model on the test set, using a threshold of 0.5?*
+```{r}
+(609 + 57) / nrow(wikiTest2)
+```
+
+# Problem 2.3 - Problem-Specific Knowledge  
+  
+Another possibility is that the number of words added and removed is predictive, perhaps more so than the actual words themselves. We already have a word count available in the form of the document-term matrices (DTMs).  
+  
+Sum the rows of dtmAdded and dtmRemoved and add them as new variables in your data frame wikiWords2 (called NumWordsAdded and NumWordsRemoved) by using the following commands:
+```{r}
+wikiWords2$NumWordsAdded <- rowSums(as.matrix(dtmAdded))
+wikiWords2$NumWordsRemoved <- rowSums(as.matrix(dtmRemoved))
+```
+
+*Q10: What is the average number of words added?*
+```{r}
+mean(wikiWords2$NumWordsAdded, na.rm = T)
+#mean(wikiWords2$NumWordsRemoved)
+# 4.05 
+```
+# Problem 2.4 - Problem-Specific Knowledge  
+
+In problem 1.5, you computed a vector called "spl" that identified the observations to put in the training and testing sets. Use that variable (do not recompute it with sample.split) to make new training and testing sets with wikiWords2. Create the CART model again (using the training set and the default parameters).  
+```{r}
+wikiTrain3 <- subset(wikiWords2, spl == TRUE)
+wikiTest3 <- subset(wikiWords2, spl == FALSE)
+```
+
+Then create a new CART model using this new variable as one of the independent variables.
+```{r}
+CART3 <- rpart(Vandal ~ ., data = wikiTrain3, method = "class")
+```
+
+Make prediction on test set:
+```{r}
+predCART3 <- predict(CART3, newdata = wikiTest3)
+predCART3[1:10,]
+```
+Confusing matrix:
+```{r}
+table(wikiTest3$Vandal, predCART3[,2] > 0.5)
+```
+  
+*Q11: What is the new accuracy of the CART model on the test set?*  
+```{r}
+(550 + 143) / nrow(wikiTest3)
+```
+*Wrong answer!!!*
+
+# Problem 3.1 - Using Non-Textual Data
+
+We have two pieces of "metadata" (data about data) that we haven't yet used. Make a copy of wikiWords2, and call it wikiWords3:
+```{r}
+wikiWords3 <- wikiWords2
+```
+
+Then add the two original variables Minor and Loggedin to this new data frame:
+```{r}
+wikiWords3$Minor <- wiki$Minor
+wikiWords3$Loggedin <- wiki$Loggedin
+```
+
+In problem 1.5, you computed a vector called "spl" that identified the observations to put in the training and testing sets. Use that variable (do not recompute it with sample.split) to make new training and testing sets with wikiWords3.
+```{r}
+wikiTrain4 <- subset(wikiWords3, spl == TRUE)
+wikiTest4 <- subset(wikiWords3, spl == FALSE)
+```
+
+Then create a new CART model using this new variable as one of the independent variables.
+```{r}
+CART4 <- rpart(Vandal ~ ., data = wikiTrain4, method = "class")
+```
+
+Make prediction on test set:
+```{r}
+predCART4 <- predict(CART4, newdata = wikiTest4, type = "class")
+```
+
+Build a CART model using all the training data.
+```{r}
+# Confusing matrix:
+table(wikiTest4$Vandal, predCART4)
+```
+*Q12: What is the accuracy of the model on the test set?*
+```{r}
+(539 + 292) / nrow(wikiTest4)
+```
+
+# Problem 3.2 - Using Non-Textual Data  
+
+There is a substantial difference in the accuracy of the model using the meta data. Is this because we made a more complicated model?  
+  
+Plot the CART tree.
+```{r}
+prp(CART4)
+```
+
+*Q: How many splits are there in the tree?*
+*A:* 1.  
+
+
