@@ -1,0 +1,119 @@
+---
+title: "ggplot2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+```
+
+# Read in data
+
+```{r}
+WHO <- read.csv("WHO.csv")
+str(WHO)
+```
+
+```{r}
+plot(WHO$GNI, WHO$FertilityRate)
+```
+
+Let's redo this using ggplot
+
+# Create the ggplot object with the data and the aesthetic mapping:
+```{r}
+scatterplot <- ggplot(WHO, aes(x = GNI, y = FertilityRate))
+```
+
+Add the geom_point geometry
+```{r}
+scatterplot + geom_point()
+```
+
+Make a line graph instead:
+```{r}
+scatterplot + geom_line()
+```
+
+Redo the plot with blue triangles instead of circles:
+```{r}
+scatterplot + geom_point(color = "blue", size = 3, shape = 17) 
+```
+
+Another option:
+```{r}
+scatterplot + geom_point(color = "darkred", size = 3, shape = 8) 
+```
+
+Add a title to the plot:
+```{r}
+scatterplot + geom_point(colour = "blue", size = 3, shape = 17) +
+  ggtitle("Fertility Rate vs. Gross National Income")
+```
+
+Save our plot:
+```{r}
+fertilityGNIplot = scatterplot + geom_point(colour = "blue", size = 3, shape = 17) + ggtitle("Fertility Rate vs. Gross National Income")
+pdf("MyPlot.pdf")
+print(fertilityGNIplot)
+#dev.off()
+```
+
+# Advanced Scatterplots Using ggplot  
+
+Color the points by region: 
+```{r}
+ggplot(WHO, aes(x = GNI, y = FertilityRate, color = Region)) + geom_point()
+```
+
+Color the points according to life expectancy:
+```{r}
+ggplot(WHO, aes(x = GNI, y = FertilityRate, color = LifeExpectancy)) + geom_point()
+```
+
+Is the fertility rate of a country was a good predictor of the percentage of the population under 15?
+```{r}
+ggplot(WHO, aes(x = FertilityRate, y = Under15)) + geom_point()
+```
+
+Let's try a log transformation:
+```{r}
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point()
+```
+
+Simple linear regression model to predict the percentage of the population under 15, using the log of the fertility rate:
+```{r}
+mod <- lm(Under15 ~ log(FertilityRate), data = WHO)
+summary(mod)
+```
+
+Add this regression line to our plot:
+```{r}
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm")
+```
+
+99% confidence interval
+```{r}
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm", level = 0.99)
+```
+
+No confidence interval in the plot
+```{r}
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm", se = FALSE)
+```
+
+Change the color of the regression line:
+```{r}
+ggplot(WHO, aes(x = log(FertilityRate), y = Under15)) + geom_point() + stat_smooth(method = "lm", colour = "orange")
+```
+
+## QQ
+
+```{r}
+ggplot(WHO, aes(x = FertilityRate, y = Under15, color = Region)) + geom_point()
+```
+
+
+
