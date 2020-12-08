@@ -1,0 +1,131 @@
+---
+title: "PREDICTING BANK TELEMARKETING SUCCESS"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+library(magrittr)
+library(purrr)
+library(caTools)
+```
+
+# About problem
+  
+The success of marketing campaigns can be highly specific to the product, the target audience, and the campaign methods. In this problem, we examine data from direct marketing campaigns of a Portuguese banking institution between May 2008 and November 2010. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be or not subscribed.
+
+# About data  
+  
+In this analysis, the goal would be predicting the dependent variable y, which takes value 1 if the the client subscribed to a term deposit, and 0 otherwise. The data we will be using bank.csv is a subset of the original data, containing 5000 examples and 20 input variables. The variable information is as follows:
+
+*age*  
+
+*job* - type of job  
+
+*marital* - marital status  
+
+*education* - Shows the level of education of each customer  
+
+*default* - Whether a customer has credit in default  
+
+*housing* - Does the customer have a housing loan?  
+
+*loan* - Does the customer have a personal loan?  
+
+*contact* - The contact communication type  
+
+*month* - Last contact month of year  
+
+*day_of_week* - Last contact day of Week  
+
+*duration* - Last contact duration in seconds (Note: this variable is not known before making the call)  
+
+*campaign* - Number of contact performed for the client during the campaign  
+
+*pdays* - number of days that passed by after the client was last contacted from a previous campaign (value of 999 means the client was not previously contacted)  
+
+*previous* - number of contacts performed before this campaign and for this client  
+
+*poutcome* - outcome of the previous marketing campaign  
+
+*emp.var.rate* - employment variation rate - quarterly indicator  
+
+*cons.price.idx* - consumer price index - monthly indicator  
+
+*cons.conf.idx* - consumer confidence index - monthly indicator  
+
+*euribor3m* - euribor 3 month rate - daily indicator  
+
+*nr.employed* - number of employees - quarterly indicator  
+  
+# Problem 2 - Call Durations by Job
+
+Build a boxplot that shows the call duration distributions over different jobs.  
+```{r}
+bank <- read.csv("bank.csv")
+str(bank)
+```
+
+*Q1: Which three jobs have the longest average call durations? (if it's hard to see from the boxplot, use tapply function.)*
+```{r}
+bank %>% 
+  group_by(job) %>% 
+  summarise(Avg_call_dur = mean(duration)) %>% 
+  arrange(desc(Avg_call_dur))
+```
+
+# Problem 3 - Multicolinearity
+
+As good practice, it is always helpful to first check for multicolinearity before running models, especially since this dataset contains macroeconomic indicators. Examine the correlation between the following variables: emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, and nr.employed.  
+```{r}
+cor(bank[,c('emp.var.rate', 'cons.price.idx', 'cons.conf.idx', 'euribor3m', 'nr.employed')])
+```
+
+*Q2: Which of the following statements are correct (limited to just these selected variables)?*  
+*A:*  
+1) cons.conf.idx does NOT seem to have severe multicolinearity with the other variables.  
+2) cons.price.idx and cons.conf.idx have the lowest correlation between two different variables.  
+
+# Problem 4 - Splitting into a Training and Testing Set
+
+Obtain a random training/testing set split with:
+```{r}
+set.seed(201)
+spl <- sample.split(bank$y, 0.7)
+```
+
+Split months into a training data frame called "training" using the observations for which spl is TRUE and a testing data frame called "testing" using the observations for which spl is FALSE.
+```{r}
+training <- subset(bank, spl == TRUE)
+testing <- subset(bank, spl == FALSE)
+```
+
+*Q3: Why do we use the sample.split() function to split into a training and testing set?*  
+*A:* It balances the dependent variable between the training and testing sets.  
+  
+# Problem 5 - Training a Logistic Regression Model
+
+Train a logistic regression model using independent variables age, job, marital, education, default, housing, loan, contact, month, day_of_week, campaign, pdays, previous, poutcome, emp.var.rate, cons.price.idx, and cons.conf.idx, using the training set to obtain the model. Notice that we have removed duration (since it's not available before the call, so shouldn't be used in a strictly predictive model), euribor3m and nr.employed (due to multicolinearity issue).
+```{r}
+mod <- glm(y ~ age + job + marital + education + default + housing + loan + contact + month + day_of_week + campaign + pdays + previous + poutcome + emp.var.rate + cons.price.idx + cons.conf.idx, data = training, family = 'binomial')
+summary(mod)
+```
+
+*Q4: Which of the following characteristics are statistically significantly POSITIVELY (at 0.05 level) associated with an increased chance of subscribing to the product?*
+*A:* look into summary.
+
+# Problem 6 - Interpreting Model Coefficients
+
+*Q5: What is the meaning of the coefficient labeled "monthmar" in the logistic regression summary output?*  
+*A:* When the month is March, the odds of subscribing to the product are 261.8% higher than an otherwise identical contact.  
+
+*Explanation.* The coefficients of the model are the log odds associated with that variable; so we see that the odds of subscribing are exp(1.286)=3.618284 those of an otherwise identical contact. This means the contact is predicted to have 3.618284-1=2.618284 higher odds of subscribing.  
+
+# Problem 9 - Interpreting AUC  
+
+*Q6: What is the meaning of the AUC?*  
+*A:* The proportion of the time the model can differentiate between a randomly selected client who subscribed to a term deposit and a randomly selected client who did not subscribe.  
+

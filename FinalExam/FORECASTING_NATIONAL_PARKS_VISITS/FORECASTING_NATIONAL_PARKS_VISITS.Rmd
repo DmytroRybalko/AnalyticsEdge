@@ -1,0 +1,172 @@
+---
+title: "FORECASTING NATIONAL PARKS VISITS"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(magrittr)
+library(purrr)
+library(caTools)
+```
+
+# Intro to problem  
+  
+The U.S. National Parks System includes 417 areas including national parks, monuments, battlefields, military parks, historical parks, historical sites, lakeshores, seashores, recreation areas, scenic rivers and trails, and the White House (see map in Figure 1). Every year, hundreds of millions of recreational visitors come to the parks. What do we know about the parks that can affect the visitor counts? Can we forecast the monthly visits to a given park accurately? To derive insights and answer these questions, we take a look at the historical visits data and the parks information released by the National Parks Service (NPS).  
+
+For this problem, we obtained monthly visits data between 2010 and 2016 (source: https://irma.nps.gov/Stats/Reports/National). We also got park-specific data via the NPS API (https://www.nps.gov/subjects/developer/get-started.htm). The aggregated dataset park_visits.csv results in a total of 12 variables and 25587 observations. Each observation contains one record per park per month. Here's a detailed description of the variables:  
+  
+*ParkName*: The full name of the park.  
+
+*ParkType*: The type of the park. For this study we restrict ourselves to the following more frequently visited types: National Battlefield, National Historic Site, National Historical Park, National Memorial, National Monument, National Park, National Recreation Area, and National Seashore.  
+  
+*Region*: The region of the park, including Alaska, Intermountain, Midwest, National Capital, Northeast, Pacific West, and Southeast.  
+
+*State*: The abbreviation of the state where the park resides.  
+  
+*Year, Month*: the year and the month for the visits.  
+
+*lat, long*: Latitude and longitude of the park.  
+
+*Cost*: a simple extraction of the park's entrance fee. Some parks may have multiple levels of entrance fees (differ by transportation methods, age, military status, etc.); for this problem, we only extracted the first available cost information  
+  
+*logVisits*: Natural logarithm of the recreational visits (with one added to the visits to avoid taking logs of zero) to the park in the given year and month.  
+
+*laglogVisits*: the logVisits from last month.  
+ 
+*laglogVisitsYear*: the logVisits from last year.   
+
+# Problem 1 - Number of National Parks in Jan 2016
+  
+Load park_visits.csv into a data frame called visits.
+```{r}
+visits <- read.csv("park_visits.csv")
+str(visits)
+```
+
+Let's first look at the visits in July 2016. Subset the observations to this year and month, name it visits2016jul. Work with this data subset for the next three problems.  
+```{r}
+visits2016jul <- subset(visits, Year == 2016 & Month == 6)
+```
+  
+*Q1: Which park type has the most number of parks?*  
+```{r}
+table(visits2016jul$ParkType)
+```
+
+*Q2: Which specific park has the most number of visitors?*  
+```{r}
+visits2016jul[which.max(visits2016jul$logVisits),]
+```
+
+# Problem 2 - Relationship Between Region and Visits
+
+*Q3: Which region has the highest average log visits in July 2016?*  
+```{r}
+visits2016jul %>% 
+  group_by(Region) %>% 
+  summarise(Mean = mean(logVisits)) %>% 
+  arrange(desc(Mean), .by_group = T)
+```
+
+*Q4: What is the highest average log visits for the region in July 2016 with:*  
+```{r}
+visits2016jul %>% 
+  filter(Region == 'Intermountain') #%>% 
+  #summarise(Max = max(logVisits))
+```
+
+## Can't understand question...
+
+# Problem 3 - Relationship Between Cost and Visits  
+
+*Q5: QWhat is the correlation between entrance fee (the variable cost) and the log visits in July 2016?*  
+```{r}
+cor(visits2016jul$cost, visits2016jul$logVisits)
+```
+
+Choose the most reasonable possible answer from the following statements:  
+```{r}
+plot(visits2016jul$cost, visits2016jul$logVisits)
+```
+  
+*A:* Higher entrance fees are associated with higher log visits, likely because more expensive parks are often more popular due to other features of the parks.  
+  
+# Problem 4 - Time Series Plot of Visits  
+  
+Let's now look at the time dimension of the data. Subset the original data (visits) to "Yellowstone NP" only and save as ys. 
+```{r}
+ys <- subset(visits, visits$ParkName == "Yellowstone NP")
+ys
+```
+Use the following code to plot the logVisits through the months between 2010 and 2016:
+```{r}
+ys_ts <- ts(ys$logVisits, start = c(2010, 1), freq = 12)
+plot(ys_ts)
+```
+  
+*Q6: What observations do you make?*  
+*A:* Between the years, the shapes are largely similar. The log visits are highly cyclical, with the peaks in the summer time.  
+  
+# Problem 5 - Missing Values  
+  
+Note that there are some NA's in the data - you can run colSums(is.na(visits)) to see the summary.
+```{r}
+colSums(is.na(visits))
+```
+
+*Q7: Why do we have NA's in the laglogVisits and laglogVisitsYear? These variables were created by lagging the log visits by a month or by a year.*  
+*A:* These are lagged variables and the earlier data is not available for the first months.  
+  
+To deal with the missing values, we will simply remove the observations with the missing values first (there are more sophisticated ways to work with missing values, but for this purpose removing the observations is fine). Run the following:
+```{r}
+visits <- visits[rowSums(is.na(visits)) == 0, ]
+```
+
+*Q8: How many observations are there in visits now?*  
+```{r}
+nrow(visits)
+```
+
+# Problem 6 - Predicting Visits  
+  
+We are interested in predicting the log visits. Before doing the split, let's also make Month a factor variable by including the following:
+```{r}
+visits$Month <- as.factor(visits$Month)
+```
+
+Subset our dataset into a training and a testing set by splitting based on the year: training would contain 2010-2014 years of data, and testing would be 2015-2016 data.
+```{r}
+Train <- subset(visits, visits$Year <= 2014)
+Test <- subset(visits, visits$Year > 2014)
+```
+  
+Let's build now a simple linear regression model "mod" using the training set to predict the log visits. As a first step, we only use the laglogVisits variable (log visits from last month).
+```{r}
+mod <- lm(logVisits ~ laglogVisits, data = Train)
+summary(mod)
+```
+
+*Q9: What's the coefficient of the laglogVisits variable?*  
+```{r}
+mod$coefficients[[2]]
+```
+
+*Q10: What's the out-of-sample R2 in the testing set for this simple model?*  
+R^2 = 1- SSE/SST
+Calculate SSE:
+```{r}
+PredictTest <- predict(mod, newdata = Test)
+SSE <- sum((Test$logVisits - PredictTest)^2)
+```
+Calculate SST:
+```{r}
+(SST <- sum((Test$logVisits - mean(Train$logVisits))^2))
+```
+Calculate R-squared:
+```{r}
+1 - SSE / SST
+```
+

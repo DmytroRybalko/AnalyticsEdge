@@ -1,0 +1,195 @@
+---
+title: "Understanding User Ratings"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(magrittr)
+library(caret)
+```
+
+# About problem
+
+In this problem, we will use a dataset comprised of google reviews on attractions from 23 categories. Google user ratings range from 1 to 5 and average user ratings per category is pre-calculated. The data set is populated by capturing user ratings from Google reviews. Reviews on attractions from 23 categories across Europe are considered.  Each observation represents a user.  
+
+# About data  
+
+Our dataset has the following columns:  
+
+*userId:* a unique integer identifying a user  
+
+*churches, resorts, beaches,..,monuments, gardens:* the average rating that this user has rated any attraction corresponding to these categories.  For example, the user with userID = User 1 has parks = 3.65, which means that the average rating of all the parks this user rated is 3.65.  It can be assumed that if an average rating is 0, then that is the average rating. It is not the case that the user has not rated that category.  
+  
+In this problem, we aim to cluster users by their average rating per category. Hence, users in the same cluster tend to enjoy or dislike the same categories.  
+
+# Problem 1 - Exploratory Data Analysis  
+
+Read the dataset ratings.csv into a dataframe called ratings.  
+```{r}
+ratings <- read.csv("ratings.csv")
+str(ratings)
+```
+
+*Q1: How many users are in the dataset?*  
+```{r}
+nrow(ratings)
+```
+
+*Q2: How many categories are rated in the dataset?*  
+```{r}
+ncol(ratings) - 1
+```
+
+*Q3: Note that there are some NA's in the data. Which columns have missing data?*
+```{r}
+colSums(is.na(ratings))
+```
+
+*Q4: What will happen if NA values are replaced with the value 0?*  
+*A:* Categories with missing values will be penalized.
+  
+To deal with the missing values, we will simply remove the observations with the missing values first (there are more sophisticated ways to work with missing values, but for this purpose removing the observations is fine since we do not lose a significant amount of observations). Run the following code:
+```{r}
+ratings <- ratings[rowSums(is.na(ratings)) == 0, ]
+```
+
+*Q5: How many users are there now?*
+```{r}
+nrow(ratings)
+```
+
+*Q6: Which category has the highest mean score?*  
+```{r}
+colMeans(subset(ratings[2:24]))
+```
+
+```{r}
+which.max(colMeans(subset(ratings[2:24])))
+```
+
+# Problem 2 - Preparing the Data  
+
+*Q7: Before performing clustering on the dataset, which variable(s) should be removed?*  
+*A:* userid.  
+  
+Remove the necessary column from the dataset and rename the new data frame points.
+```{r}
+ratings2 <- ratings
+ratings2$userid <- NULL
+```
+
+Now, we will normalize the data.  
+*Q8: What will the maximum value of pubs be after applying mean-var normalization? Answer without actually normalizing the data.*  
+```{r}
+summary(ratings2$pubs)
+```
+
+Normalize the data using the following code:
+```{r}
+preproc <- preProcess(ratings2)
+ratingsNorm <- predict(preproc, ratings2)
+```
+
+*Q9: What is the maximum value of juice_bars after the normalization?*
+```{r}
+summary(ratingsNorm$juice_bars)
+```
+*A:* 1.7822
+  
+# Problem 3.1 - Clustering
+
+Create a dendogram using the following code:
+```{r}
+distances <- dist(ratingsNorm, method = "euclidean")
+dend <- hclust(distances, method = "ward.D")
+plot(dend, labels = FALSE)
+```
+
+*Q10: Based on the dendrogram, how many clusters do you think would NOT be appropriate for this problem?*  
+*A:* 5.
+  
+*Q11: Based on this dendogram, in choosing the number of clusters, what is the best option?*  
+*A: 4.  
+  
+# Problem 3.2 - Clustering
+
+Set the random seed to 100, and run the k-means clustering algorithm on your normalized dataset, setting the number of clusters to 4.
+```{r}
+set.seed(100)
+KMC <- kmeans(ratingsNorm, centers = 4)
+str(KMC)
+```
+
+*Q12: How many observations are in the largest cluster?*
+```{r}
+max(KMC$size)
+```
+
+# Problem 4 - Conceptual Questions  
+
+*Q13: True or False: If we ran k-means clustering a second time without making any additional calls to set.seed, we would expect every observation to be in the same cluster as it is now.*  
+*A:* False.  
+  
+*Q14: True or False: K-means clustering is sensative to outliers.*  
+*A:* True.  
+  
+*Q15: Why do we typically use cluster centroids to describe the clusters?*  
+1) The cluster centroid gives the values of every single observation in the cluster, and therefore exactly describes the cluster.  
+
+2) The cluster centroid captures the average behavior in the cluster, and can be used to summarize the general pattern in the cluster (correct).  
+
+3) The cluster centroid captures the average behavior in the cluster, relative to the other clusters. So by just computing a single cluster centroid, we can understand how the cluster differs from the other clusters.  
+  
+*Q16: Is "overfitting" a problem in clustering?*  
+*A:* Yes, at the extreme every data point can be assigned to its own cluster.  
+  
+*Q17: Is "multicollinearity" a problem in clustering?*  
+*A:* Yes, multicollinearity could cause certain features to be overweighted in the distances calculations.  
+  
+# Problem 5 - Understanding the Clusters  
+
+*Q18: Which cluster has the user with the lowest average rating in restaurants?*  
+```{r}
+tapply(ratings2$restaurants, KMC$cluster, mean)
+```
+*A:* 1.  
+  
+*Q19: Which of the clusters is best described as "users who have mostly enjoyed churches, pools, gyms, bakeries, and cafes"?*  
+Church:
+```{r}
+tapply(ratings2$churches, KMC$cluster, mean)
+```
+Pools: 
+```{r}
+tapply(ratings2$pools, KMC$cluster, mean)
+```
+Gyms:
+```{r}
+tapply(ratings2$gyms, KMC$cluster, mean)
+```
+Bakeries:
+```{r}
+tapply(ratings2$bakeries, KMC$cluster, mean)
+```
+Cafes:  
+```{r}
+tapply(ratings2$cafes, KMC$cluster, mean)
+```
+*A:* Cluster 1.  
+  
+*Q20: Which cluster seems to enjoy being outside, but does not enjoy as much going to the zoo or pool?*  
+Beach:
+```{r}
+tapply(ratings2$beaches, KMC$cluster, mean)
+```
+Parks:
+```{r}
+tapply(ratings2$parks, KMC$cluster, mean)
+```
+View points:
+```{r}
+tapply(ratings2$view_points, KMC$cluster, mean)
+```
